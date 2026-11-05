@@ -1,0 +1,82 @@
+/* ==========================================
+   Siriraj Check-in Locator - Custom Styles
+   ========================================== */
+
+body {
+    background-color: #FFFDF7;
+    background-image: radial-gradient(#CBD5E1 1.2px, transparent 1.2px);
+    background-size: 24px 24px;
+    color: #1E1B2E;
+    overflow-x: hidden;
+}
+
+/* Neo-brutalist button press effect */
+.btn-neo {
+    border: 2.5px solid #1E1B2E;
+    box-shadow: 4px 4px 0px 0px #1E1B2E;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-neo:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px 0px #1E1B2E;
+}
+.btn-neo:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px 0px #1E1B2E;
+}
+
+.card-neo {
+    border: 3px solid #1E1B2E;
+    box-shadow: 5px 5px 0px 0px #1E1B2E;
+    transition: all 0.2s ease;
+}
+.card-neo:hover {
+    transform: translateY(-4px);
+    box-shadow: 8px 8px 0px 0px #1E1B2E;
+}
+
+/* Radar Pulse Animation */
+@keyframes radar-pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(255, 93, 143, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 14px rgba(255, 93, 143, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(255, 93, 143, 0);
+    }
+}
+.pulse-badge {
+    animation: radar-pulse 2s infinite;
+}
+
+/* Floating Animation */
+@keyframes floatSlow {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-6px) rotate(2deg); }
+}
+.float-anim {
+    animation: floatSlow 3.5s ease-in-out infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background: #FFFDF7;
+    border-left: 2px solid #1E1B2E;
+}
+::-webkit-scrollbar-thumb {
+    background: #FFD166;
+    border: 2px solid #1E1B2E;
+    border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #FF5D8F;
+}
+
