@@ -255,10 +255,6 @@ function renderNearestHero(spot) {
                                 <i class="ph-fill ph-map-pin-area"></i>
                                 <span id="heroDistanceText">${formatDistanceBadge(spot.distanceMeters)}</span>
                             </span>
-                            <span class="bg-white text-pop-dark font-bold text-xs px-3 py-1.5 rounded-xl border-2 border-pop-dark flex items-center gap-1.5">
-                                <i class="ph-fill ph-identification-card text-pop-purple text-base"></i>
-                                ต้องใช้บัตรแตะที่เครื่องจริง
-                            </span>
                         </div>
 
                         <h3 class="font-display text-2xl sm:text-3xl font-bold text-pop-dark pt-1">

@@ -58,25 +58,6 @@
                     <p class="text-xs sm:text-sm text-slate-600">ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรภายใน รพ.ศิริราช</p>
                 </div>
             </div>
-
-            <!-- GPS Live Status Indicator & Refresh -->
-            <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                <div id="gpsStatusBadge" class="flex items-center gap-2.5 bg-white px-3 py-2 rounded-xl border-2 border-pop-dark shadow-neo-sm text-xs sm:text-sm">
-                    <span id="gpsLiveIndicator" class="relative flex h-3 w-3 shrink-0">
-                        <span class="live-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                    </span>
-                    <div>
-                        <span id="gpsStatusTitle" class="text-[10px] uppercase font-bold text-slate-400 block leading-none">พิกัด GPS สด</span>
-                        <span id="currentZoneText" class="font-semibold text-pop-dark truncate max-w-[170px] sm:max-w-none block">กำลังค้นหาตำแหน่ง...</span>
-                    </div>
-                </div>
-
-                <button onclick="startLiveTracking()" id="btnFindGPS" class="btn-neo bg-pop-mint hover:bg-[#05c090] text-pop-dark font-bold px-3.5 py-2.5 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shrink-0" title="รีเฟรชการจับพิกัดสด">
-                    <i class="ph-bold ph-crosshair text-base"></i>
-                    <span id="btnFindGPSText">จับพิกัดสด</span>
-                </button>
-            </div>
         </div>
     </header>
 
