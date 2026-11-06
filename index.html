@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>แตะบัตรใกล้ฉัน | โรงพยาบาลศิริราช</title>
+    <!-- Favicon (Emoji SVG) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪪</text></svg>">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Mitr & Kanit for fun, friendly Thai typography -->
@@ -30,7 +32,7 @@
     <div class="bg-pop-dark text-white py-2 px-4 border-b-2 border-pop-dark text-xs sm:text-sm font-medium flex items-center justify-between z-20">
         <div class="flex items-center gap-2 truncate">
             <span class="inline-block w-2.5 h-2.5 rounded-full bg-pop-yellow"></span>
-            <span class="font-bold text-pop-yellow">ระบบค้นหาตู้แตะบัตรศิริราช:</span>
+            <span class="font-bold text-pop-yellow">ระบบค้นหาเครื่องแตะบัตรศิริราช:</span>
             <span class="truncate">ใช้สำหรับค้นหาพิกัดและนำทางเท่านั้น (ต้องนำบัตรไปแตะที่เครื่องจริง ณ อาคาร) 🏥🪪</span>
         </div>
         <div id="liveClock" class="font-display font-semibold text-pop-mint shrink-0 ml-2 bg-white/10 px-2.5 py-0.5 rounded-full">
@@ -140,10 +142,7 @@
         <section class="space-y-4">
             <div class="flex items-center justify-between">
                 <h2 class="font-display text-xl sm:text-2xl font-bold text-pop-dark flex items-center gap-2">
-                    <span class="w-8 h-8 rounded-lg bg-pop-blue text-white border-2 border-pop-dark flex items-center justify-center text-base shadow-neo-sm">
-                        <i class="ph-bold ph-list-Numbers"></i>
-                    </span>
-                    <span>รายการจุดแตะบัตรทั้งหมด</span>
+                    <span>📍 รายการจุดแตะบัตรทั้งหมด</span>
                 </h2>
                 <span id="resultCountText" class="text-xs sm:text-sm font-bold text-slate-600 bg-white px-3 py-1 rounded-full border-2 border-pop-dark shadow-neo-sm">
                     แสดง 10 สถานที่
@@ -174,18 +173,13 @@
     <footer class="bg-pop-dark text-white border-t-[3px] border-pop-dark mt-12 py-6 px-4 z-10">
         <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
             <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 rounded-lg bg-pop-yellow text-pop-dark flex items-center justify-center font-bold text-lg">
-                    🪪
+                <span class="w-8 h-8 rounded-lg bg-pop-pink text-white flex items-center justify-center font-bold text-lg">
+                    <i class="ph-fill ph-identification-badge"></i>
                 </span>
                 <div>
-                    <p class="font-display font-bold text-sm">แตะบัตรศิริราช (Siriraj Card Tap Locator)</p>
-                    <p class="text-xs text-slate-400">เว็บช่วยค้นหาตำแหน่งจุดตั้งเครื่องแตะบัตรและนำทาง (ต้องแตะบัตรที่เครื่องจริงเท่านั้น)</p>
+                    <p class="font-display font-bold text-sm">แตะบัตรใกล้ฉัน 🏥 Siriraj Hospital</p>
+                    <p class="text-xs text-slate-400">Copyright © 2026</p>
                 </div>
-            </div>
-            <div class="text-xs text-slate-400 flex items-center gap-3">
-                <span>⚡ คำนวณระยะจาก GPS</span>
-                <span>•</span>
-                <span>🗺️ นำทางไปจุดติดตั้งเครื่องด้วย Google Maps</span>
             </div>
         </div>
     </footer>
@@ -193,17 +187,21 @@
     <!-- Location Details Modal (Physical Terminal Info Only) -->
     <div id="tapModal" class="fixed inset-0 bg-pop-dark/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-md w-full p-6 border-[3px] border-pop-dark shadow-neo-lg relative text-center">
-            <button onclick="closeTapModal()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 hover:bg-pop-pink hover:text-white border-2 border-pop-dark flex items-center justify-center transition">
-                <i class="ph-bold ph-x"></i>
-            </button>
 
-            <div class="w-20 h-20 mx-auto mb-3 rounded-2xl bg-pop-yellow border-[3px] border-pop-dark shadow-neo flex items-center justify-center text-4xl">
-                🪪
+            <!-- Location / Terminal Photo (image2) -->
+            <div class="relative w-full h-48 sm:h-56 rounded-2xl overflow-hidden border-[3px] border-pop-dark shadow-neo mb-3 bg-slate-100">
+                <img 
+                    id="modalImage2" 
+                    src="" 
+                    alt="รูปจุดตั้งเครื่องจริง" 
+                    class="w-full h-full object-cover"
+                    onerror="this.src='https://placehold.co/600x400/FFD166/1E1B2E?text=จุดติดตั้งเครื่อง'"
+                >
+                <span class="absolute bottom-2.5 left-2.5 bg-pop-dark/90 backdrop-blur-sm text-pop-yellow text-[11px] font-bold px-2.5 py-1 rounded-lg border border-white flex items-center gap-1 shadow">
+                    <i class="ph-fill ph-camera text-xs"></i>
+                    <span>รูปจุดตั้งเครื่องจริง</span>
+                </span>
             </div>
-
-            <span class="inline-block bg-pop-pink text-white text-xs font-bold px-3 py-1 rounded-full border-2 border-pop-dark mb-2">
-                รายละเอียดจุดติดตั้งเครื่องแตะบัตร
-            </span>
 
             <h3 id="modalLocationName" class="font-display text-xl font-bold text-pop-dark mb-1">
                 อาคารนวมินทรบพิตร ๘๔ พรรษา

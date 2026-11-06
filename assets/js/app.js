@@ -2,7 +2,10 @@
 // 1. APPLICATION STATE
 // (baseLocations is loaded from data.js)
 // ==========================================
-let locationsData = (typeof baseLocations !== 'undefined') ? [...baseLocations] : [];
+// Filter out any locations where status is 'N' or coordinates are missing
+let locationsData = (typeof baseLocations !== 'undefined') 
+    ? baseLocations.filter(loc => String(loc.status || 'Y').trim().toUpperCase() !== 'N' && loc.lat != null && loc.lng != null) 
+    : [];
 let userLocation = {
     lat: 13.757155,
     lng: 100.486346,
@@ -234,7 +237,7 @@ function renderNearestHero(spot) {
                 <div class="lg:col-span-5 relative group">
                     <div class="h-52 sm:h-60 w-full rounded-2xl overflow-hidden border-[3px] border-pop-dark shadow-neo bg-slate-200 relative">
                         <img 
-                            src="${spot.image}" 
+                            src="${spot.image1 || spot.image}" 
                             alt="${spot.name}" 
                             onerror="this.src='https://placehold.co/600x400/FF5D8F/FFFFFF?text=Check-in+Spot'"
                             class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
@@ -374,7 +377,7 @@ function renderLocationsGrid(list) {
                 <div>
                     <div class="relative h-44 w-full bg-slate-100 border-b-[3px] border-pop-dark overflow-hidden group">
                         <img 
-                            src="${loc.image}" 
+                            src="${loc.image1 || loc.image}" 
                             alt="${loc.name}" 
                             onerror="this.src='https://placehold.co/600x400/8338EC/FFFFFF?text=Check-in+Spot'"
                             class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
@@ -471,6 +474,14 @@ function openTapModal(locationId) {
     document.getElementById('modalLocationName').textContent = spot.name;
     document.getElementById('modalGate').textContent = spot.gateInfo;
     document.getElementById('modalOpenHours').textContent = spot.openHours;
+
+    // Set image2 (Terminal Photo)
+    const modalImg = document.getElementById('modalImage2');
+    if (modalImg) {
+        modalImg.src = spot.image2 || spot.image1 || spot.image || 'https://placehold.co/600x400/FFD166/1E1B2E?text=จุดติดตั้งเครื่อง';
+        modalImg.alt = `รูปจุดตั้งเครื่องจริง ${spot.name}`;
+    }
+
     updateOpenModalDistance(locationId);
 
     const modal = document.getElementById('tapModal');
@@ -485,7 +496,10 @@ function updateOpenModalDistance(locationId) {
     const distEl = document.getElementById('modalDistanceInfo');
     const mapLinkEl = document.getElementById('modalMapLink');
     if (distEl) {
-        distEl.textContent = `ระยะห่างจากคุณ: ${spot.distanceMeters.toLocaleString('th-TH')} เมตร`;
+        const distText = (spot.distanceMeters !== undefined) 
+            ? `${spot.distanceMeters.toLocaleString('th-TH')} เมตร` 
+            : 'กำลังคำนวณระยะ...';
+        distEl.textContent = `ระยะห่างจากคุณ: ${distText}`;
     }
     if (mapLinkEl) {
         mapLinkEl.href = getGoogleMapsUrl(spot.lat, spot.lng, spot.name);
