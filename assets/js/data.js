@@ -5,7 +5,7 @@ const baseLocations = [
     {
         id: 1,
         name: "ตึกชัยนาทนเรนทรานุสรณ์",
-        gateInfo: "ชั้น 1 ทางเข้า",
+        gateInfo: "ชั้น 1 ใกล้ประตูทางเข้า",
         lat: 13.757155378765418,
         lng: 100.48634660009508,
         image1: "assets/images/01_1.jpg",
@@ -15,7 +15,7 @@ const baseLocations = [
     {
         id: 2,
         name: "ตึกอัษฎางค์",
-        gateInfo: "ชั้น 1",
+        gateInfo: "ชั้น 1 ข้างตึกธนาคารไทยพาณิชย์",
         lat: 13.756814785530006,
         lng: 100.4860081866277,
         image1: "assets/images/02_1.jpg",
@@ -25,7 +25,7 @@ const baseLocations = [
     {
         id: 3,
         name: "อาคาร 100 ปี สมเด็จพระศรีนครินทร์",
-        gateInfo: "ชั้น 1",
+        gateInfo: "ชั้น 1 ใกล้ประตูทางเข้า",
         lat: 13.757009096021367,
         lng: 100.48543768424695,
         image1: "",
@@ -55,7 +55,7 @@ const baseLocations = [
     {
         id: 6,
         name: "ตึกอานันทมหิดล",
-        gateInfo: "ชั้น 1 ใกล้กับทางขึ้น Skywalk",
+        gateInfo: "ชั้น 1 ใกล้ทางขึ้น Skywalk",
         lat: 13.756142666187186,
         lng: 100.48448268451688,
         image1: "",
@@ -85,7 +85,7 @@ const baseLocations = [
     {
         id: 9,
         name: "ตึกผู้ป่วยนอก (หน้าฝ่ายเภสัชกรรม)",
-        gateInfo: "ชั้น 1",
+        gateInfo: "ชั้น 1 ใกล้ประตูทางเข้า",
         lat: 13.75708215060771,
         lng: 100.48347243241173,
         image1: "assets/images/09_1.jpg",
@@ -135,7 +135,7 @@ const baseLocations = [
     {
         id: 14,
         name: "ตึกสยามมินทร์",
-        gateInfo: "ชั้น 1 โถงหน้าลิฟต์",
+        gateInfo: "ชั้น 1 ข้างโถงลิฟต์",
         lat: 13.757489204165127,
         lng: 100.48529047734344,
         image1: "assets/images/14_1.jpg",
@@ -185,7 +185,7 @@ const baseLocations = [
     {
         id: 19,
         name: "อาคารศรีสวรินทิรา",
-        gateInfo: "ชั้น 1 โถงหน้าลิฟต์",
+        gateInfo: "ชั้น 1 ข้างโถงลิฟต์",
         lat: 13.758808409025352,
         lng: 100.48570951221583,
         image1: "assets/images/19_1.jpg",
