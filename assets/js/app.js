@@ -51,12 +51,12 @@ function formatDistanceBadge(meters) {
 }
 
 function getWalkingTimeText(meters) {
-    if (meters <= 25) return "🎯 คุณอยู่ถึงจุดติดตั้งตึกนี้แล้ว!";
-    if (meters <= 80) return "🏃 อยู่ใกล้มาก! เดินไม่ถึง 1 นาที";
+    if (meters <= 25) return "🎯 ถึงแล้ว!";
+    if (meters <= 80) return "🏃 เดิน < 1 นาที";
     const mins = Math.ceil(meters / 80);
-    if (mins <= 15) return `🚶 เดินเท้าประมาณ ${mins} นาทีถึง`;
+    if (mins <= 15) return `🚶 เดิน ~${mins} นาที`;
     const driveMins = Math.max(2, Math.ceil(meters / 450));
-    return `🛵 เดินทางประมาณ ${driveMins} นาที (${meters.toLocaleString('th-TH')} ม.)`;
+    return `🛵 นั่งรถ ~${driveMins} นาที`;
 }
 
 function getGoogleMapsUrl(destLat, destLng, placeName) {
@@ -171,12 +171,16 @@ function showGPSAlertBanner(title, message) {
         if (titleEl) titleEl.textContent = title;
         if (msgEl) msgEl.textContent = message;
         banner.classList.remove('hidden');
+        banner.removeAttribute('hidden');
     }
 }
 
 function hideGPSAlertBanner() {
     const banner = document.getElementById('gpsAlertBanner');
-    if (banner) banner.classList.add('hidden');
+    if (banner) {
+        banner.classList.add('hidden');
+        banner.setAttribute('hidden', '');
+    }
 }
 
 // ==========================================
@@ -398,7 +402,7 @@ function renderLocationsGrid(list) {
     const countText = document.getElementById('resultCountText');
 
     if (countText) {
-        countText.textContent = `แสดง ${list.length} สถานที่`;
+        countText.textContent = `${list.length} สถานที่`;
     }
 
     if (!grid) return;
