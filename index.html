@@ -29,12 +29,7 @@
     <div class="fixed bottom-10 left-10 w-44 h-44 bg-pop-mint rounded-full mix-blend-multiply filter blur-3xl opacity-40 pointer-events-none z-0"></div>
 
     <!-- Top Marquee Banner -->
-    <div class="bg-pop-dark text-white py-2 px-4 border-b-2 border-pop-dark text-xs sm:text-sm font-medium flex items-center justify-between z-20">
-        <div class="flex items-center gap-2 truncate">
-            <span class="inline-block w-2.5 h-2.5 rounded-full bg-pop-yellow"></span>
-            <span class="font-bold text-pop-yellow">ระบบค้นหาเครื่องแตะบัตรศิริราช:</span>
-            <span class="truncate">ใช้สำหรับค้นหาพิกัดและนำทางเท่านั้น (ต้องนำบัตรไปแตะที่เครื่องจริง ณ อาคาร) 🏥🪪</span>
-        </div>
+    <div class="bg-pop-dark text-white py-2 px-4 border-b-2 border-pop-dark text-xs sm:text-sm font-medium flex items-center justify-end z-20">
         <div id="liveClock" class="font-display font-semibold text-pop-mint shrink-0 ml-2 bg-white/10 px-2.5 py-0.5 rounded-full">
             08:30:00
         </div>
@@ -90,12 +85,12 @@
         <!-- HERO SECTION: Nearest Tap Card Location -->
         <section id="nearestHeroSection" class="relative">
             <!-- Section Header Badge -->
-            <div class="flex items-center justify-between mb-3">
-                <div class="inline-flex items-center gap-2 bg-pop-pink text-white font-display font-semibold text-sm sm:text-base px-4 py-1.5 rounded-full border-2 border-pop-dark shadow-neo-sm pulse-badge">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-3">
+                <div class="inline-flex items-center gap-2 bg-pop-pink text-white font-display font-semibold text-sm sm:text-base px-4 py-1.5 rounded-full border-2 border-pop-dark shadow-neo-sm pulse-badge self-start sm:self-auto">
                     <i class="ph-fill ph-sparkle text-pop-yellow text-lg"></i>
                     <span>จุดแตะบัตรที่ใกล้คุณที่สุดตอนนี้!</span>
                 </div>
-                <span id="walkingEstimate" class="text-xs sm:text-sm font-bold bg-pop-yellow/60 px-3 py-1 rounded-lg border border-pop-dark">
+                <span id="walkingEstimate" class="self-end sm:self-auto text-xs sm:text-sm font-bold bg-pop-yellow/60 px-3 py-1 rounded-lg border border-pop-dark">
                     🚶 คำนวณตามระยะจริง
                 </span>
             </div>
@@ -140,11 +135,11 @@
 
         <!-- ALL LOCATIONS GRID -->
         <section class="space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                 <h2 class="font-display text-xl sm:text-2xl font-bold text-pop-dark flex items-center gap-2">
                     <span>📍 รายการจุดแตะบัตรทั้งหมด</span>
                 </h2>
-                <span id="resultCountText" class="text-xs sm:text-sm font-bold text-slate-600 bg-white px-3 py-1 rounded-full border-2 border-pop-dark shadow-neo-sm">
+                <span id="resultCountText" class="self-end sm:self-auto text-xs sm:text-sm font-bold text-slate-600 bg-white px-3 py-1 rounded-full border-2 border-pop-dark shadow-neo-sm">
                     แสดง 10 สถานที่
                 </span>
             </div>

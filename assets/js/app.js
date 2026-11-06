@@ -265,17 +265,17 @@ function renderNearestHero(spot) {
                         </h3>
 
                         <div class="bg-white/90 rounded-2xl p-3.5 border-2 border-pop-dark space-y-1.5 text-xs sm:text-sm">
-                            <div class="flex items-start gap-2">
-                                <i class="ph-fill ph-door-open text-pop-purple text-lg shrink-0 mt-0.5"></i>
+                            <div class="flex items-center gap-2">
+                                <i class="ph-fill ph-map-pin text-pop-purple text-lg shrink-0 mt-0.5"></i>
                                 <div>
-                                    <span class="font-bold text-pop-dark">จุดตั้งเครื่องแตะบัตร:</span>
+                                    <span class="font-bold text-pop-dark">จุดสแกน</span>
                                     <span class="text-slate-700"> ${spot.gateInfo}</span>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="ph-fill ph-clock text-pop-orange text-lg shrink-0"></i>
                                 <div>
-                                    <span class="font-bold text-pop-dark">เวลาเปิดอาคาร/จุดสแกน:</span>
+                                    <span class="font-bold text-pop-dark">เวลา</span>
                                     <span class="text-slate-700"> ${spot.openHours}</span>
                                 </div>
                             </div>
@@ -300,7 +300,7 @@ function renderNearestHero(spot) {
                             class="btn-neo bg-white hover:bg-pop-mint text-pop-dark font-display font-bold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2"
                         >
                             <i class="ph-fill ph-info text-xl text-pop-purple"></i>
-                            <span>ดูจุดสังเกตที่ตั้งเครื่อง</span>
+                            <span>ดูรายละเอียด</span>
                         </button>
                     </div>
                 </div>
@@ -412,13 +412,13 @@ function renderLocationsGrid(list) {
                         </h3>
 
                         <div class="bg-pop-bg rounded-xl p-3 border-2 border-pop-dark/80 space-y-1.5 text-xs">
-                            <p class="text-slate-700 flex items-start gap-1.5">
+                            <p class="text-slate-700 flex items-center gap-1.5">
                                 <i class="ph-bold ph-map-pin text-pop-purple text-sm shrink-0 mt-0.5"></i>
-                                <span><strong class="text-pop-dark">จุดสแกน:</strong> ${loc.gateInfo}</span>
+                                <span><strong class="text-pop-dark">จุดสแกน</strong> ${loc.gateInfo}</span>
                             </p>
                             <p class="text-slate-600 flex items-center gap-1.5">
                                 <i class="ph-bold ph-clock text-pop-orange text-sm shrink-0"></i>
-                                <span><strong class="text-pop-dark">เวลา:</strong> ${loc.openHours}</span>
+                                <span><strong class="text-pop-dark">เวลา</strong> ${loc.openHours}</span>
                             </p>
                         </div>
                     </div>
