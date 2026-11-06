@@ -4,11 +4,15 @@
 // ==========================================
 let locationsData = (typeof baseLocations !== 'undefined') ? [...baseLocations] : [];
 let userLocation = {
-    lat: 13.7574,
-    lng: 100.4857,
-    label: "ลานพระราชานุสาวรีย์ฯ"
+    lat: 13.757155,
+    lng: 100.486346,
+    accuracy: null,
+    hasRealGPS: false,
+    label: "กำลังจับพิกัดสด..."
 };
-let activeCategory = "all";
+let watchId = null;
+let activeModalLocationId = null;
+let lastKnownHeroId = null;
 
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
@@ -27,12 +31,13 @@ function calculateDistanceInMeters(lat1, lon1, lat2, lon2) {
               Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return Math.round(R * c); // Exact meters rounded to integer
+    return Math.round(R * c);
 }
 
-// Format meters with commas and helpful km subtitle if far
 function formatDistanceBadge(meters) {
-    if (meters < 1000) {
+    if (meters <= 15) {
+        return `อยู่ที่นี่แล้ว (~${meters} ม.)`;
+    } else if (meters < 1000) {
         return `ห่าง ${meters.toLocaleString('th-TH')} เมตร`;
     } else {
         const km = (meters / 1000).toFixed(1);
@@ -40,105 +45,140 @@ function formatDistanceBadge(meters) {
     }
 }
 
-// Estimate walking time (approx 80 meters per minute)
 function getWalkingTimeText(meters) {
+    if (meters <= 25) return "🎯 คุณอยู่ถึงจุดติดตั้งตึกนี้แล้ว!";
     if (meters <= 80) return "🏃 อยู่ใกล้มาก! เดินไม่ถึง 1 นาที";
     const mins = Math.ceil(meters / 80);
     if (mins <= 15) return `🚶 เดินเท้าประมาณ ${mins} นาทีถึง`;
-    const driveMins = Math.max(3, Math.ceil(meters / 450));
+    const driveMins = Math.max(2, Math.ceil(meters / 450));
     return `🛵 เดินทางประมาณ ${driveMins} นาที (${meters.toLocaleString('th-TH')} ม.)`;
 }
 
-// Generate Google Maps Direction URL
 function getGoogleMapsUrl(destLat, destLng, placeName) {
     return `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destLat},${destLng}&travelmode=walking`;
 }
 
 // ==========================================
-// 3. REAL GPS & SIMULATED PRESET HANDLERS
+// 3. CONTINUOUS REAL-TIME GPS TRACKING
 // ==========================================
-function requestRealGPS() {
-    const btn = document.getElementById('btnFindGPS');
-    const originalHTML = btn.innerHTML;
-    btn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-lg"></i><span>กำลังค้นหาพิกัด...</span>`;
-    btn.disabled = true;
+function startLiveTracking() {
+    const btnText = document.getElementById('btnFindGPSText');
+    if (btnText) btnText.textContent = "กำลังค้นหา...";
 
     if (!navigator.geolocation) {
-        showToast("⚠️ เบราว์เซอร์ไม่รองรับ GPS", "ระบบใช้พิกัดจำลองแทนนะครับ");
-        resetGPSButton(btn, originalHTML);
+        updateGPSStatusUI('unsupported', 'ไม่รองรับ GPS');
+        showGPSAlertBanner('เบราว์เซอร์ไม่รองรับ GPS', 'อุปกรณ์นี้ไม่รองรับระบบตรวจจับตำแหน่ง');
+        showToast('⚠️ ไม่รองรับ GPS', 'อุปกรณ์นี้ไม่รองรับระบบตรวจจับตำแหน่ง');
         return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const realLat = position.coords.latitude;
-            const realLng = position.coords.longitude;
+    updateGPSStatusUI('locating', 'กำลังค้นหาสัญญาณ...');
 
-            userLocation = {
-                lat: realLat,
-                lng: realLng,
-                label: `พิกัด GPS ปัจจุบัน (${realLat.toFixed(4)}, ${realLng.toFixed(4)})`
-            };
+    const geoOptions = {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 12000
+    };
 
-            // Ensure there is always a local check-in point near the user's real GPS
-            // so they can test realistic short meter distances anywhere in the world!
-            injectNearbyPopUpSpotIfFar(realLat, realLng);
+    if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+    }
 
-            // Clear preset active styling
-            document.querySelectorAll('.preset-btn').forEach(b => {
-                b.classList.remove('bg-pop-yellow');
-                b.classList.add('bg-white');
-            });
-
-            document.getElementById('currentZoneText').textContent = "พิกัด GPS จริงของคุณ";
-            recalculateAndRender();
-            showToast("🛰️ จับพิกัด GPS สำเร็จ!", "คำนวณจุดแตะบัตรที่ใกล้คุณที่สุดแล้ว");
-            resetGPSButton(btn, originalHTML);
-        },
-        (error) => {
-            // Fallback: create a realistic local spot near current simulated location
-            showToast("📍 ใช้โหมดพิกัดจำลอง", "คุณสามารถเลือกย่านด้านล่างเพื่อทดสอบระยะทางได้ทันที");
-            resetGPSButton(btn, originalHTML);
-        },
-        { enableHighAccuracy: true, timeout: 7000 }
+    watchId = navigator.geolocation.watchPosition(
+        onPositionSuccess,
+        onPositionError,
+        geoOptions
     );
 }
 
-function resetGPSButton(btn, html) {
-    btn.innerHTML = html;
-    btn.disabled = false;
-}
+function onPositionSuccess(position) {
+    const realLat = position.coords.latitude;
+    const realLng = position.coords.longitude;
+    const accuracy = Math.round(position.coords.accuracy || 0);
 
-// If user tests real GPS while outside Siriraj Hospital (>1.5km away), keep all Siriraj buildings so they can see exact distances to Siriraj
-function injectNearbyPopUpSpotIfFar(lat, lng) {
-    locationsData = [...baseLocations];
-}
+    const isFirstFix = !userLocation.hasRealGPS;
 
-function setSimulatedLocation(lat, lng, label, presetKey) {
-    locationsData = [...baseLocations];
-    userLocation = { lat, lng, label };
-    document.getElementById('currentZoneText').textContent = label;
+    userLocation.lat = realLat;
+    userLocation.lng = realLng;
+    userLocation.accuracy = accuracy;
+    userLocation.hasRealGPS = true;
+    userLocation.label = `พิกัดจริง (±${accuracy} ม.)`;
 
-    // Highlight active preset button
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.classList.remove('bg-pop-yellow');
-        btn.classList.add('bg-white');
-    });
-    const activeBtn = document.getElementById(`preset-${presetKey}`);
-    if (activeBtn) {
-        activeBtn.classList.remove('bg-white');
-        activeBtn.classList.add('bg-pop-yellow');
+    updateGPSStatusUI('active', `สดเรียลไทม์ (±${accuracy} ม.)`);
+    hideGPSAlertBanner();
+
+    if (isFirstFix) {
+        showToast("🛰️ จับสัญญาณ GPS สดสำเร็จ!", "ระบบกำลังคำนวณและเรียงตึกตามระยะจริง");
     }
 
+    // Recalculate distances and re-order in real time!
     recalculateAndRender();
-    showToast("📍 ย้ายพิกัดจำลองแล้ว!", `กำลังแสดงจุดแตะบัตรรอบ "${label}"`);
+}
+
+function onPositionError(error) {
+    console.warn('Geolocation watch error:', error);
+    if (!userLocation.hasRealGPS) {
+        if (error.code === error.PERMISSION_DENIED) {
+            updateGPSStatusUI('denied', 'ยังไม่อนุญาต GPS');
+            showGPSAlertBanner(
+                'กรุณาเปิดสิทธิ์เข้าถึงตำแหน่ง (GPS)',
+                'เพื่อให้ระบบคำนวณและเรียงลำดับตึกที่ใกล้ที่สุดแบบเรียลไทม์ขณะที่คุณเดิน'
+            );
+        } else {
+            updateGPSStatusUI('error', 'ค้นหาสัญญาณไม่พบ');
+        }
+    }
+}
+
+function updateGPSStatusUI(status, label) {
+    const zoneText = document.getElementById('currentZoneText');
+    const indicator = document.getElementById('gpsLiveIndicator');
+    const btnText = document.getElementById('btnFindGPSText');
+
+    if (zoneText) zoneText.textContent = label;
+    if (btnText) btnText.textContent = "จับพิกัดสด";
+
+    if (indicator) {
+        if (status === 'active') {
+            indicator.innerHTML = `
+                <span class="live-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            `;
+        } else if (status === 'locating') {
+            indicator.innerHTML = `
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+            `;
+        } else {
+            indicator.innerHTML = `
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+            `;
+        }
+    }
+}
+
+function showGPSAlertBanner(title, message) {
+    const banner = document.getElementById('gpsAlertBanner');
+    const titleEl = document.getElementById('gpsAlertTitle');
+    const msgEl = document.getElementById('gpsAlertMessage');
+    if (banner) {
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl) msgEl.textContent = message;
+        banner.classList.remove('hidden');
+    }
+}
+
+function hideGPSAlertBanner() {
+    const banner = document.getElementById('gpsAlertBanner');
+    if (banner) banner.classList.add('hidden');
 }
 
 // ==========================================
 // 4. RENDERING HERO (NEAREST) & GRID CARDS
 // ==========================================
 function recalculateAndRender() {
-    // Compute distance for every location
+    // 1. Recalculate distance for each location using current userLocation
     locationsData.forEach(loc => {
         loc.distanceMeters = calculateDistanceInMeters(
             userLocation.lat,
@@ -148,24 +188,44 @@ function recalculateAndRender() {
         );
     });
 
-    // Find overall nearest location
+    // 2. Identify current nearest spot
     const sortedByNearest = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters);
     const nearestSpot = sortedByNearest[0];
 
+    // 3. Render Hero card (closest building)
     renderNearestHero(nearestSpot);
+
+    // 4. Filter & re-sort grid cards
     handleSearchAndFilter();
-    updateCategoryCounts();
+
+    // 5. If modal is currently open, update its distance live as well!
+    if (activeModalLocationId !== null) {
+        updateOpenModalDistance(activeModalLocationId);
+    }
 }
 
 function renderNearestHero(spot) {
     if (!spot) return;
 
-    document.getElementById('walkingEstimate').textContent = getWalkingTimeText(spot.distanceMeters);
-    const mapsUrl = getGoogleMapsUrl(spot.lat, spot.lng, spot.name);
+    const walkingEl = document.getElementById('walkingEstimate');
+    if (walkingEl) walkingEl.textContent = getWalkingTimeText(spot.distanceMeters);
 
+    const mapsUrl = getGoogleMapsUrl(spot.lat, spot.lng, spot.name);
     const container = document.getElementById('nearestCardContainer');
+
+    // If the same building is still nearest, update distance elements directly to prevent image re-render
+    if (lastKnownHeroId === spot.id && container.children.length > 0) {
+        const distEl = document.getElementById('heroDistanceText');
+        const mapsLinkEl = document.getElementById('heroMapsLink');
+        if (distEl) distEl.textContent = formatDistanceBadge(spot.distanceMeters);
+        if (mapsLinkEl) mapsLinkEl.href = mapsUrl;
+        return;
+    }
+
+    lastKnownHeroId = spot.id;
+
     container.innerHTML = `
-        <div class="card-neo bg-gradient-to-br from-pop-yellow via-[#FFE082] to-pop-mint/40 rounded-3xl p-4 sm:p-6 relative overflow-hidden">
+        <div class="card-neo bg-gradient-to-br from-pop-yellow via-[#FFE082] to-pop-mint/40 rounded-3xl p-4 sm:p-6 relative overflow-hidden transition-all duration-300">
             <!-- Decorative background sticker -->
             <div class="hidden sm:flex absolute -right-6 -bottom-6 w-36 h-36 rounded-full bg-white/30 border-2 border-pop-dark/10 items-center justify-center pointer-events-none"></div>
 
@@ -176,15 +236,12 @@ function renderNearestHero(spot) {
                         <img 
                             src="${spot.image}" 
                             alt="${spot.name}" 
-                            onerror="this.src='https://placehold.co/600x400/FF5D8F/FFFFFF?text=Tap+Card+Spot'"
+                            onerror="this.src='https://placehold.co/600x400/FF5D8F/FFFFFF?text=Check-in+Spot'"
                             class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                         >
                         <div class="absolute top-3 left-3 bg-pop-dark text-pop-yellow font-display font-bold text-xs px-3 py-1.5 rounded-xl border-2 border-white flex items-center gap-1.5 shadow-md">
-                            <i class="ph-fill ph-crown text-base"></i>
+                            <i class="ph-fill ph-crown text-base text-pop-yellow"></i>
                             <span>อันดับ #1 ใกล้คุณที่สุด</span>
-                        </div>
-                        <div class="absolute bottom-3 right-3 bg-white/95 backdrop-blur-sm text-pop-dark font-bold text-xs px-3 py-1 rounded-lg border-2 border-pop-dark">
-                            ${spot.category}
                         </div>
                     </div>
                 </div>
@@ -196,7 +253,7 @@ function renderNearestHero(spot) {
                         <div class="inline-flex flex-wrap items-center gap-2">
                             <span class="bg-pop-pink text-white font-display font-bold text-lg sm:text-2xl px-4 py-1.5 rounded-2xl border-[2.5px] border-pop-dark shadow-neo-sm flex items-center gap-2">
                                 <i class="ph-fill ph-map-pin-area"></i>
-                                ${formatDistanceBadge(spot.distanceMeters)}
+                                <span id="heroDistanceText">${formatDistanceBadge(spot.distanceMeters)}</span>
                             </span>
                             <span class="bg-white text-pop-dark font-bold text-xs px-3 py-1.5 rounded-xl border-2 border-pop-dark flex items-center gap-1.5">
                                 <i class="ph-fill ph-identification-card text-pop-purple text-base"></i>
@@ -229,6 +286,7 @@ function renderNearestHero(spot) {
                     <!-- Action Buttons -->
                     <div class="flex flex-col sm:flex-row gap-3 pt-1">
                         <a 
+                            id="heroMapsLink"
                             href="${mapsUrl}" 
                             target="_blank" 
                             rel="noopener noreferrer"
@@ -254,33 +312,34 @@ function renderNearestHero(spot) {
 }
 
 function handleSearchAndFilter() {
-    const query = document.getElementById('searchInput').value.trim().toLowerCase();
-    const sortMode = document.getElementById('sortSelect').value;
+    const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+    const sortMode = document.getElementById('sortSelect')?.value || 'distance-asc';
     const clearBtn = document.getElementById('clearSearchBtn');
 
-    if (query.length > 0) {
-        clearBtn.classList.remove('hidden');
-    } else {
-        clearBtn.classList.add('hidden');
+    if (clearBtn) {
+        if (query.length > 0) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
     }
 
-    // Filter by search & category
+    // Filter by search query (name and gateInfo)
     let filtered = locationsData.filter(loc => {
-        const matchesQuery = 
+        const matchesQuery = !query || 
             loc.name.toLowerCase().includes(query) ||
-            loc.gateInfo.toLowerCase().includes(query) ||
-            loc.category.toLowerCase().includes(query);
+            loc.gateInfo.toLowerCase().includes(query);
         
-        const matchesCat = (activeCategory === 'all') || (loc.category === activeCategory);
         const matchesWalkable = (sortMode === 'walkable') ? loc.distanceMeters <= 200 : true;
 
-        return matchesQuery && matchesCat && matchesWalkable;
+        return matchesQuery && matchesWalkable;
     });
 
     // Sort
     if (sortMode === 'name-asc') {
         filtered.sort((a, b) => a.name.localeCompare(b.name, 'th'));
     } else {
+        // distance-asc or walkable
         filtered.sort((a, b) => a.distanceMeters - b.distanceMeters);
     }
 
@@ -292,17 +351,21 @@ function renderLocationsGrid(list) {
     const emptyState = document.getElementById('emptyState');
     const countText = document.getElementById('resultCountText');
 
-    countText.textContent = `แสดง ${list.length} สถานที่`;
+    if (countText) {
+        countText.textContent = `แสดง ${list.length} สถานที่`;
+    }
+
+    if (!grid) return;
 
     if (list.length === 0) {
         grid.innerHTML = '';
-        emptyState.classList.remove('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
 
-    emptyState.classList.add('hidden');
+    if (emptyState) emptyState.classList.add('hidden');
 
-    // Find overall nearest ID so we can badge it in the grid too
+    // Overall nearest ID to badge with 🔥 ใกล้สุด!
     const overallNearestId = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters)[0]?.id;
 
     grid.innerHTML = list.map((loc, index) => {
@@ -310,7 +373,7 @@ function renderLocationsGrid(list) {
         const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.name);
 
         return `
-            <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative">
+            <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300" data-id="${loc.id}">
                 <!-- Top Image & Badges -->
                 <div>
                     <div class="relative h-44 w-full bg-slate-100 border-b-[3px] border-pop-dark overflow-hidden group">
@@ -332,16 +395,11 @@ function renderLocationsGrid(list) {
                             ` : ''}
                         </div>
 
-                        <!-- Category Tag -->
-                        <span class="absolute top-3 right-3 ${loc.badgeColor} text-[11px] font-bold px-2.5 py-1 rounded-full border-2 border-pop-dark shadow-neo-sm">
-                            ${loc.category}
-                        </span>
-
                         <!-- Distance Meter Overlay -->
                         <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm">
                             <div class="flex items-center gap-1.5 text-pop-dark font-display font-bold text-sm">
                                 <i class="ph-fill ph-footprints text-pop-pink text-base"></i>
-                                <span>${loc.distanceMeters.toLocaleString('th-TH')} เมตร</span>
+                                <span class="dist-val">${loc.distanceMeters.toLocaleString('th-TH')} เมตร</span>
                             </div>
                             <span class="text-[11px] font-semibold text-slate-500">
                                 ${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : (loc.distanceMeters / 1000).toFixed(1) + ' กม.'}
@@ -393,54 +451,53 @@ function renderLocationsGrid(list) {
 }
 
 // ==========================================
-// 5. FILTER, MODAL & UI HELPERS
+// 5. MODAL, TOAST & UI HELPERS
 // ==========================================
-function setCategory(cat) {
-    activeCategory = cat;
-    document.querySelectorAll('.cat-pill').forEach(btn => {
-        if (btn.getAttribute('data-cat') === cat) {
-            btn.classList.remove('bg-white', 'text-pop-dark');
-            btn.classList.add('bg-pop-dark', 'text-white');
-        } else {
-            btn.classList.remove('bg-pop-dark', 'text-white');
-            btn.classList.add('bg-white', 'text-pop-dark');
-        }
-    });
-    handleSearchAndFilter();
-}
-
-function updateCategoryCounts() {
-    const countAll = document.getElementById('count-all');
-    if (countAll) countAll.textContent = locationsData.length;
-}
-
 function clearSearch() {
-    document.getElementById('searchInput').value = '';
+    const input = document.getElementById('searchInput');
+    if (input) input.value = '';
     handleSearchAndFilter();
 }
 
 function resetAllFilters() {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('sortSelect').value = 'distance-asc';
-    setCategory('all');
+    const input = document.getElementById('searchInput');
+    const sortSelect = document.getElementById('sortSelect');
+    if (input) input.value = '';
+    if (sortSelect) sortSelect.value = 'distance-asc';
+    handleSearchAndFilter();
 }
 
 function openTapModal(locationId) {
+    activeModalLocationId = locationId;
     const spot = locationsData.find(l => l.id === locationId);
     if (!spot) return;
 
     document.getElementById('modalLocationName').textContent = spot.name;
-    document.getElementById('modalDistanceInfo').textContent = `ห่างจากพิกัดของคุณ ${spot.distanceMeters.toLocaleString('th-TH')} เมตร`;
     document.getElementById('modalGate').textContent = spot.gateInfo;
     document.getElementById('modalOpenHours').textContent = spot.openHours;
-    document.getElementById('modalMapLink').href = getGoogleMapsUrl(spot.lat, spot.lng, spot.name);
+    updateOpenModalDistance(locationId);
 
     const modal = document.getElementById('tapModal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
 
+function updateOpenModalDistance(locationId) {
+    const spot = locationsData.find(l => l.id === locationId);
+    if (!spot) return;
+
+    const distEl = document.getElementById('modalDistanceInfo');
+    const mapLinkEl = document.getElementById('modalMapLink');
+    if (distEl) {
+        distEl.textContent = `ระยะห่างจากคุณ: ${spot.distanceMeters.toLocaleString('th-TH')} เมตร`;
+    }
+    if (mapLinkEl) {
+        mapLinkEl.href = getGoogleMapsUrl(spot.lat, spot.lng, spot.name);
+    }
+}
+
 function closeTapModal() {
+    activeModalLocationId = null;
     const modal = document.getElementById('tapModal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
@@ -449,6 +506,8 @@ function closeTapModal() {
 let toastTimeout;
 function showToast(title, message) {
     const toast = document.getElementById('toastBox');
+    if (!toast) return;
+
     document.getElementById('toastTitle').textContent = title;
     document.getElementById('toastMessage').textContent = message;
 
@@ -465,6 +524,7 @@ function showToast(title, message) {
 // Live Clock in Top Bar
 function startClock() {
     const clockEl = document.getElementById('liveClock');
+    if (!clockEl) return;
     const update = () => {
         const now = new Date();
         clockEl.textContent = "🕒 " + now.toLocaleTimeString('th-TH', { hour12: false });
@@ -477,5 +537,5 @@ function startClock() {
 window.onload = function () {
     startClock();
     recalculateAndRender();
+    startLiveTracking(); // Automatically start continuous real-time tracking
 };
-

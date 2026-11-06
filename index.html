@@ -59,62 +59,50 @@
                 </div>
             </div>
 
-            <!-- GPS Trigger & Current Status -->
+            <!-- GPS Live Status Indicator & Refresh -->
             <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                <div id="gpsStatusBadge" class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border-2 border-pop-dark shadow-neo-sm text-xs sm:text-sm">
-                    <i id="gpsIcon" class="ph-fill ph-map-pin-line text-pop-purple text-lg"></i>
+                <div id="gpsStatusBadge" class="flex items-center gap-2.5 bg-white px-3 py-2 rounded-xl border-2 border-pop-dark shadow-neo-sm text-xs sm:text-sm">
+                    <span id="gpsLiveIndicator" class="relative flex h-3 w-3 shrink-0">
+                        <span class="live-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
                     <div>
-                        <span class="text-[10px] uppercase font-bold text-slate-400 block leading-none">จุดที่คุณยืนอยู่</span>
-                        <span id="currentZoneText" class="font-semibold text-pop-dark">ลานพระราชานุสาวรีย์ฯ</span>
+                        <span id="gpsStatusTitle" class="text-[10px] uppercase font-bold text-slate-400 block leading-none">พิกัด GPS สด</span>
+                        <span id="currentZoneText" class="font-semibold text-pop-dark truncate max-w-[170px] sm:max-w-none block">กำลังค้นหาตำแหน่ง...</span>
                     </div>
                 </div>
 
-                <button onclick="requestRealGPS()" id="btnFindGPS" class="btn-neo bg-pop-mint hover:bg-[#05c090] text-pop-dark font-bold px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 shrink-0">
-                    <i class="ph-bold ph-crosshair text-lg"></i>
-                    <span>จับพิกัดจริงของฉัน</span>
+                <button onclick="startLiveTracking()" id="btnFindGPS" class="btn-neo bg-pop-mint hover:bg-[#05c090] text-pop-dark font-bold px-3.5 py-2.5 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shrink-0" title="รีเฟรชการจับพิกัดสด">
+                    <i class="ph-bold ph-crosshair text-base"></i>
+                    <span id="btnFindGPSText">จับพิกัดสด</span>
                 </button>
             </div>
         </div>
     </header>
 
     <!-- Main Content Container -->
-    <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-6 sm:py-8 z-10 space-y-8">
+    <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-6 sm:py-8 z-10 space-y-6">
 
-        <!-- Location Simulator Bar (For easy testing inside Siriraj Hospital) -->
-        <section class="bg-white rounded-2xl p-4 border-[3px] border-pop-dark shadow-neo">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div class="flex items-center gap-2.5">
-                    <span class="w-9 h-9 rounded-xl bg-pop-yellow border-2 border-pop-dark flex items-center justify-center text-lg shrink-0">
-                        🏥
-                    </span>
-                    <div>
-                        <h2 class="font-display font-semibold text-sm sm:text-base text-pop-dark">
-                            จำลองจุดที่คุณเดินอยู่ใน รพ.ศิริราช (คลิกสลับจุดเพื่อดูตึกที่ใกล้ที่สุด)
-                        </h2>
-                        <p class="text-xs text-slate-500">
-                            กดปุ่ม <strong class="text-pop-dark">"จับพิกัดจริงของฉัน"</strong> ด้านบนเมื่ออยู่ใน รพ. หรือลองคลิกจำลองจุดทางเข้าด้านล่าง:
-                        </p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-2" id="presetLocationButtons">
-                    <button onclick="setSimulatedLocation(13.7574, 100.4857, 'ลานพระราชานุสาวรีย์ฯ', 'mahidol')" id="preset-mahidol" class="preset-btn btn-neo bg-pop-yellow text-pop-dark text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                        📍 ลานพระราชานุสาวรีย์ฯ
-                    </button>
-                    <button onclick="setSimulatedLocation(13.7556, 100.4868, 'ท่าเรือพรานนก / วังหลัง', 'pier')" id="preset-pier" class="preset-btn btn-neo bg-white hover:bg-pop-yellow/40 text-pop-dark text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                        ⛴️ ท่าเรือวังหลัง/พรานนก
-                    </button>
-                    <button onclick="setSimulatedLocation(13.7563, 100.4846, 'ประตูหน้า รพ. (แยกศิริราช)', 'frontgate')" id="preset-frontgate" class="preset-btn btn-neo bg-white hover:bg-pop-yellow/40 text-pop-dark text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                        🚩 ประตูแยกศิริราช
-                    </button>
-                    <button onclick="setSimulatedLocation(13.7582, 100.4838, 'ประตูฝั่งถนนอรุณอมรินทร์', 'arun')" id="preset-arun" class="preset-btn btn-neo bg-white hover:bg-pop-yellow/40 text-pop-dark text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                        🚶 ประตูอรุณอมรินทร์
-                    </button>
-                    <button onclick="setSimulatedLocation(13.7599, 100.4855, 'โซนริมน้ำ / SiPH', 'siph')" id="preset-siph" class="preset-btn btn-neo bg-white hover:bg-pop-yellow/40 text-pop-dark text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                        🌊 โซน SiPH / ริมน้ำ
-                    </button>
+        <!-- GPS Permission/Status Alert Banner (Hidden by default, shown when GPS denied/needed) -->
+        <div id="gpsAlertBanner" class="hidden bg-amber-50 rounded-2xl p-4 border-[2.5px] border-pop-dark shadow-neo flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-start sm:items-center gap-3">
+                <span class="w-10 h-10 rounded-xl bg-pop-yellow border-2 border-pop-dark flex items-center justify-center text-xl shrink-0 shadow-neo-sm">
+                    📍
+                </span>
+                <div>
+                    <h3 class="font-display font-bold text-sm sm:text-base text-pop-dark" id="gpsAlertTitle">
+                        กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS)
+                    </h3>
+                    <p class="text-xs text-slate-600" id="gpsAlertMessage">
+                        ระบบจะคำนวณระยะทางและเรียงลำดับตึกที่ใกล้ที่สุดแบบสดๆ ตลอดเวลาที่คุณเดิน
+                    </p>
                 </div>
             </div>
-        </section>
+            <button onclick="startLiveTracking()" class="btn-neo bg-pop-mint hover:bg-[#05c090] text-pop-dark font-bold px-4 py-2 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0">
+                <i class="ph-bold ph-crosshair"></i>
+                <span>เปิดใช้งาน GPS</span>
+            </button>
+        </div>
 
         <!-- HERO SECTION: Nearest Tap Card Location -->
         <section id="nearestHeroSection" class="relative">
@@ -125,7 +113,7 @@
                     <span>จุดแตะบัตรที่ใกล้คุณที่สุดตอนนี้!</span>
                 </div>
                 <span id="walkingEstimate" class="text-xs sm:text-sm font-bold bg-pop-yellow/60 px-3 py-1 rounded-lg border border-pop-dark">
-                    🚶 เดินประมาณ 1 นาทีถึง
+                    🚶 คำนวณตามระยะจริง
                 </span>
             </div>
 
@@ -135,9 +123,9 @@
             </div>
         </section>
 
-        <!-- SEARCH & FILTER CONTROLS -->
-        <section class="bg-pop-purple/10 rounded-3xl p-4 sm:p-6 border-[3px] border-pop-dark shadow-neo space-y-4">
-            <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <!-- SEARCH & SORT CONTROLS -->
+        <section class="bg-pop-purple/10 rounded-2xl p-4 sm:p-5 border-[3px] border-pop-dark shadow-neo">
+            <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
                 <!-- Search Input -->
                 <div class="relative flex-grow">
                     <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-xl text-pop-dark"></i>
@@ -145,8 +133,8 @@
                         type="text" 
                         id="searchInput" 
                         oninput="handleSearchAndFilter()"
-                        placeholder="ค้นหาชื่อตึกในศิริราช เช่น นวมินทรบพิตร, สยามินทร์, OPD, อัษฎางค์, เฉลิมพระเกียรติ..." 
-                        class="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-white border-[2.5px] border-pop-dark shadow-neo-sm focus:outline-none focus:ring-4 focus:ring-pop-yellow text-sm sm:text-base font-medium placeholder:text-slate-400"
+                        placeholder="ค้นหาชื่อตึกหรือจุดสแกน เช่น ชัยนาท, อัษฎางค์, 100 ปี, 72 ปี, ผู้ป่วยนอก..." 
+                        class="w-full pl-12 pr-10 py-3 rounded-2xl bg-white border-[2.5px] border-pop-dark shadow-neo-sm focus:outline-none focus:ring-4 focus:ring-pop-yellow text-sm sm:text-base font-medium placeholder:text-slate-400"
                     >
                     <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-200 hover:bg-pop-pink hover:text-white flex items-center justify-center text-slate-600 transition">
                         <i class="ph-bold ph-x text-sm"></i>
@@ -158,29 +146,12 @@
                     <label for="sortSelect" class="text-xs sm:text-sm font-bold text-pop-dark shrink-0">
                         <i class="ph-bold ph-arrows-down-up mr-1"></i>เรียงตาม:
                     </label>
-                    <select id="sortSelect" onchange="handleSearchAndFilter()" class="bg-white border-[2.5px] border-pop-dark rounded-xl px-3 py-3 text-sm font-bold shadow-neo-sm focus:outline-none cursor-pointer">
+                    <select id="sortSelect" onchange="handleSearchAndFilter()" class="bg-white border-[2.5px] border-pop-dark rounded-xl px-3 py-2.5 text-sm font-bold shadow-neo-sm focus:outline-none cursor-pointer">
                         <option value="distance-asc">ใกล้ที่สุดก่อน (เมตร)</option>
                         <option value="name-asc">ชื่อตึก (ก-ฮ)</option>
                         <option value="walkable">ตึกใกล้มาก (&lt; 200 เมตร)</option>
                     </select>
                 </div>
-            </div>
-
-            <!-- Category Pills -->
-            <div class="flex items-center gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar" id="categoryFilterBar">
-                <button onclick="setCategory('all')" data-cat="all" class="cat-pill btn-neo bg-pop-dark text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-full shrink-0 flex items-center gap-1.5">
-                    <span>✨ ทั้งหมดในศิริราช</span>
-                    <span id="count-all" class="bg-pop-yellow text-pop-dark px-1.5 py-0.2 rounded-full text-xs">10</span>
-                </button>
-                <button onclick="setCategory('ตึกตรวจรักษา/OPD')" data-cat="ตึกตรวจรักษา/OPD" class="cat-pill btn-neo bg-white text-pop-dark text-xs sm:text-sm font-bold px-4 py-2 rounded-full shrink-0 flex items-center gap-1.5">
-                    <span>🩺 ตึกตรวจรักษา / OPD</span>
-                </button>
-                <button onclick="setCategory('หอผู้ป่วยใน/IPD')" data-cat="หอผู้ป่วยใน/IPD" class="cat-pill btn-neo bg-white text-pop-dark text-xs sm:text-sm font-bold px-4 py-2 rounded-full shrink-0 flex items-center gap-1.5">
-                    <span>🛌 อาคารหอผู้ป่วยใน / IPD</span>
-                </button>
-                <button onclick="setCategory('บริหาร/การศึกษา')" data-cat="บริหาร/การศึกษา" class="cat-pill btn-neo bg-white text-pop-dark text-xs sm:text-sm font-bold px-4 py-2 rounded-full shrink-0 flex items-center gap-1.5">
-                    <span>🎓 บริหาร / การศึกษา</span>
-                </button>
             </div>
         </section>
 
@@ -209,9 +180,9 @@
                     🕵️‍♂️
                 </div>
                 <h3 class="font-display text-xl font-bold text-pop-dark mb-1">ไม่พบจุดแตะบัตรที่คุณค้นหา</h3>
-                <p class="text-sm text-slate-500 mb-5">ลองเปลี่ยนคำค้นหา หรือเลือกดูหมวดหมู่ "ทั้งหมด" ดูนะ!</p>
+                <p class="text-sm text-slate-500 mb-5">ลองเปลี่ยนคำค้นหา หรือพิมพ์ชื่อตึกอื่นดูนะ!</p>
                 <button onclick="resetAllFilters()" class="btn-neo bg-pop-pink text-white font-bold px-5 py-2.5 rounded-xl text-sm">
-                    ล้างตัวกรองทั้งหมด
+                    ล้างคำค้นหา
                 </button>
             </div>
         </section>
