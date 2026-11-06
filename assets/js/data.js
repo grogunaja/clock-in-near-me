@@ -215,7 +215,7 @@ const baseLocations = [
     {
         id: 22,
         name: "Skywalk ประตู 5",
-        gateInfo: "ชั้น 2",
+        gateInfo: "ชั้น 2 ใกล้บันไดเลื่อน",
         lat: 13.759407548582178,
         lng: 100.48457078408157,
         image1: "assets/images/22_1.jpg",
@@ -225,7 +225,7 @@ const baseLocations = [
     {
         id: 23,
         name: "Skywalk ตรงข้าม 84 ปี",
-        gateInfo: "ชั้น 2",
+        gateInfo: "ชั้น 2 ใกล้ลิฟต์",
         lat: 13.75761986154529,
         lng: 100.48460672639163,
         image1: "assets/images/23_1.jpg",
@@ -235,7 +235,7 @@ const baseLocations = [
     {
         id: 24,
         name: "Skywalk อุบัติเหตุ",
-        gateInfo: "ชั้น 2",
+        gateInfo: "ชั้น 2 ใกล้บันไดเลื่อน",
         lat: 13.75631751818896,
         lng: 100.48421573340897,
         image1: "",
