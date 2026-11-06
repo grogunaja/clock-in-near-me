@@ -203,7 +203,7 @@ function getSlideHTML(loc, isHero = false) {
     const isShowingImg1 = (globalSlideIndex === 0);
 
     return `
-        <div class="slideshow-box relative w-full h-full cursor-pointer select-none group/slide" data-slide-id="${key}" onclick="toggleSlide('${key}')" title="คลิกเพื่อสลับรูปอาคาร / รูปจุดแตะบัตร">
+        <div class="slideshow-box relative w-full h-full select-none" data-slide-id="${key}">
             <!-- Slide Image 1 (Building) -->
             <img 
                 id="slide-img1-${key}"
@@ -242,13 +242,6 @@ function updateSlideElement(key, slideIdx) {
             img2.classList.add('opacity-100');
         }
     }
-}
-
-function toggleSlide(key) {
-    const img1 = document.getElementById(`slide-img1-${key}`);
-    if (!img1) return;
-    const isShowingImg1 = img1.classList.contains('opacity-100');
-    updateSlideElement(key, isShowingImg1 ? 1 : 0);
 }
 
 function startSlideshowTimer() {
@@ -335,19 +328,11 @@ function renderNearestHero(spot) {
                             ${spot.name}
                         </h3>
 
-                        <div class="bg-white/90 rounded-2xl p-3.5 border-2 border-pop-dark space-y-1.5 text-xs sm:text-sm">
+                        <div class="bg-white/90 rounded-2xl p-3.5 border-2 border-pop-dark text-xs sm:text-sm">
                             <div class="flex items-center gap-2">
-                                <i class="ph-fill ph-map-pin text-pop-purple text-lg shrink-0 mt-0.5"></i>
+                                <i class="ph-fill ph-map-pin text-pop-purple text-lg shrink-0"></i>
                                 <div>
-                                    <span class="font-bold text-pop-dark">จุดสแกน</span>
-                                    <span class="text-slate-700"> ${spot.gateInfo}</span>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <i class="ph-fill ph-clock text-pop-orange text-lg shrink-0"></i>
-                                <div>
-                                    <span class="font-bold text-pop-dark">เวลา</span>
-                                    <span class="text-slate-700"> ${spot.openHours}</span>
+                                    <span class="font-bold text-pop-dark">${spot.gateInfo}</span>
                                 </div>
                             </div>
                         </div>
@@ -363,7 +348,7 @@ function renderNearestHero(spot) {
                             class="btn-neo w-full bg-pop-blue hover:bg-blue-600 text-white font-display font-bold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
                         >
                             <i class="ph-bold ph-navigation-arrow text-xl"></i>
-                            <span>นำทางด้วย Google Maps
+                            <span>นำทางด้วย Google Maps</span>
                         </a>
                     </div>
                 </div>
@@ -451,10 +436,13 @@ function renderLocationsGrid(list) {
                                 </span>
                             ` : ''}
                         </div>
+                    </div>
 
-                        <!-- Distance Meter Overlay (Bottom) -->
-                        <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm pointer-events-none z-10">
-                            <div class="flex items-center gap-1.5 text-pop-dark font-display font-bold text-sm">
+                    <!-- Card Body -->
+                    <div class="p-4 sm:p-5 space-y-2.5">
+                        <!-- Distance Meter Box (Above building name) -->
+                        <div class="flex items-center justify-between bg-pop-bg px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm">
+                            <div class="flex items-center gap-1.5 text-pop-dark font-display font-bold text-xs sm:text-sm">
                                 <i class="ph-fill ph-footprints text-pop-pink text-base"></i>
                                 <span class="dist-val">${loc.distanceMeters.toLocaleString('th-TH')} เมตร</span>
                             </div>
@@ -462,22 +450,16 @@ function renderLocationsGrid(list) {
                                 ${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : (loc.distanceMeters / 1000).toFixed(1) + ' กม.'}
                             </span>
                         </div>
-                    </div>
 
-                    <!-- Card Body -->
-                    <div class="p-4 sm:p-5 space-y-3">
-                        <h3 class="font-display text-lg font-bold text-pop-dark leading-snug line-clamp-1" title="${loc.name}">
-                            ${loc.name}
-                        </h3>
+                        <!-- Building Name & Scan Location (Tightly grouped) -->
+                        <div class="space-y-0.5">
+                            <h3 class="font-display text-lg font-bold text-pop-dark leading-snug line-clamp-1" title="${loc.name}">
+                                ${loc.name}
+                            </h3>
 
-                        <div class="bg-pop-bg rounded-xl p-3 border-2 border-pop-dark/80 space-y-1.5 text-xs">
-                            <p class="text-slate-700 flex items-center gap-1.5">
-                                <i class="ph-bold ph-map-pin text-pop-purple text-sm shrink-0 mt-0.5"></i>
-                                <span><strong class="text-pop-dark">จุดสแกน</strong> ${loc.gateInfo}</span>
-                            </p>
-                            <p class="text-slate-600 flex items-center gap-1.5">
-                                <i class="ph-bold ph-clock text-pop-orange text-sm shrink-0"></i>
-                                <span><strong class="text-pop-dark">เวลา</strong> ${loc.openHours}</span>
+                            <p class="text-slate-700 flex items-center gap-1.5 text-xs">
+                                <i class="ph-bold ph-map-pin text-pop-purple text-base shrink-0"></i>
+                                <span>${loc.gateInfo}</span>
                             </p>
                         </div>
                     </div>
@@ -492,7 +474,7 @@ function renderLocationsGrid(list) {
                         class="btn-neo w-full bg-pop-yellow hover:bg-[#ffc63b] text-pop-dark font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
                     >
                         <i class="ph-bold ph-navigation-arrow text-base"></i>
-                        <span>นำทาง Google Maps</span>
+                        <span>นำทางด้วย Google Maps</span>
                     </a>
                 </div>
             </article>
