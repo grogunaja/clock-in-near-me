@@ -291,9 +291,8 @@ function renderNearestHero(spot) {
                             rel="noopener noreferrer"
                             class="btn-neo flex-1 bg-pop-blue hover:bg-blue-600 text-white font-display font-bold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2"
                         >
-                            <i class="ph-bold ph-google-logo text-xl"></i>
+                            <i class="ph-bold ph-navigation-arrow text-xl"></i>
                             <span>นำทางด้วย Google Maps</span>
-                            <i class="ph-bold ph-arrow-up-right"></i>
                         </a>
 
                         <button 
