@@ -191,12 +191,12 @@ function getSlideHTML(loc, isHero = false) {
     const img2 = loc.image2 || '';
     const hasBoth = Boolean(img1 && img2);
     const key = isHero ? 'hero' : loc.id;
-    const fallback = 'https://placehold.co/600x400/8338EC/FFFFFF?text=Check-in+Spot';
+    const fallback = 'assets/images/noimage.jpg';
 
     if (!hasBoth) {
         return `
             <img 
-                src="${img1 || fallback}" 
+                src="${img1 || img2 || fallback}" 
                 alt="${loc.name}" 
                 onerror="this.src='${fallback}'"
                 class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
@@ -222,7 +222,7 @@ function getSlideHTML(loc, isHero = false) {
                 id="slide-img2-${key}"
                 src="${img2}" 
                 alt="${loc.name} - รูปจุดแตะบัตรจริง" 
-                onerror="this.src='https://placehold.co/600x400/FFD166/1E1B2E?text=จุดติดตั้งเครื่อง'"
+                onerror="this.src='${fallback}'"
                 class="slide-img-2 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-0' : 'opacity-100'}"
             >
         </div>
