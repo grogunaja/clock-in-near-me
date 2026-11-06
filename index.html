@@ -37,32 +37,32 @@
 
     <!-- Header / Navbar -->
     <header class="sticky top-0 z-30 backdrop-blur-md bg-pop-bg/90 border-b-[3px] border-pop-dark">
-        <div class="max-w-6xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="max-w-6xl mx-auto px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-3">
             <!-- Brand Logo -->
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-2xl bg-pop-pink border-[2.5px] border-pop-dark shadow-neo-sm flex items-center justify-center text-white text-2xl float-anim">
+            <div class="flex items-center gap-2.5 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-pop-pink border-[2.5px] border-pop-dark shadow-neo-sm flex items-center justify-center text-white text-xl sm:text-2xl float-anim shrink-0">
                     <i class="ph-fill ph-identification-badge"></i>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h1 class="font-display text-2xl sm:text-3xl font-bold tracking-tight text-pop-dark">
+                        <h1 class="font-display text-xl sm:text-3xl font-bold tracking-tight text-pop-dark">
                             แตะบัตร<span class="text-pop-pink underline decoration-wavy decoration-pop-yellow decoration-2">ใกล้ฉัน</span>
                         </h1>
-                        <span class="bg-pop-yellow text-pop-dark text-xs font-bold px-2 py-0.5 rounded-full border-2 border-pop-dark shadow-neo-sm">
+                        <span class="bg-pop-yellow text-pop-dark text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-full border-2 border-pop-dark shadow-neo-sm">
                             Siriraj Hospital
                         </span>
                     </div>
-                    <p class="text-xs sm:text-sm text-slate-600">ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรภายใน รพ.ศิริราช</p>
+                    <p class="text-[11px] sm:text-xs text-slate-600">ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรภายใน รพ.ศิริราช</p>
                 </div>
             </div>
         </div>
     </header>
 
     <!-- Main Content Container -->
-    <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-6 sm:py-8 z-10 space-y-6">
+    <main class="flex-grow max-w-6xl w-full mx-auto px-4 pt-3 sm:pt-4 pb-8 sm:pb-12 z-10 space-y-4 sm:space-y-6">
 
         <!-- GPS Permission/Status Alert Banner (Hidden by default, shown when GPS denied/needed) -->
-        <div id="gpsAlertBanner" class="hidden bg-amber-50 rounded-2xl p-4 border-[2.5px] border-pop-dark shadow-neo flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div id="gpsAlertBanner" hidden class="hidden bg-amber-50 rounded-2xl p-4 border-[2.5px] border-pop-dark shadow-neo flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="flex items-start sm:items-center gap-3">
                 <span class="w-10 h-10 rounded-xl bg-pop-yellow border-2 border-pop-dark flex items-center justify-center text-xl shrink-0 shadow-neo-sm">
                     📍
@@ -84,14 +84,14 @@
 
         <!-- HERO SECTION: Nearest Tap Card Location -->
         <section id="nearestHeroSection" class="relative">
-            <!-- Section Header Badge -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-3">
-                <div class="inline-flex items-center gap-2 bg-pop-pink text-white font-display font-semibold text-sm sm:text-base px-4 py-1.5 rounded-full border-2 border-pop-dark shadow-neo-sm pulse-badge self-start sm:self-auto">
-                    <i class="ph-fill ph-sparkle text-pop-yellow text-lg"></i>
-                    <span>จุดแตะบัตรที่ใกล้คุณที่สุดตอนนี้!</span>
+            <!-- Section Header Badge (Compact Single Row) -->
+            <div class="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+                <div class="inline-flex items-center gap-1.5 bg-pop-pink text-white font-display font-semibold text-xs sm:text-sm px-3 sm:px-4 py-1.5 rounded-full border-2 border-pop-dark shadow-neo-sm pulse-badge shrink-0">
+                    <i class="ph-fill ph-sparkle text-pop-yellow text-sm sm:text-base"></i>
+                    <span>ใกล้คุณที่สุดตอนนี้</span>
                 </div>
-                <span id="walkingEstimate" class="self-end sm:self-auto text-xs sm:text-sm font-bold bg-pop-yellow/60 px-3 py-1 rounded-lg border border-pop-dark">
-                    🚶 คำนวณตามระยะจริง
+                <span id="walkingEstimate" class="text-xs sm:text-sm font-bold bg-pop-yellow/70 text-pop-dark px-2.5 sm:px-3 py-1 rounded-xl border-2 border-pop-dark shadow-neo-sm shrink-0">
+                    🚶 ตามระยะจริง
                 </span>
             </div>
 
@@ -135,12 +135,12 @@
 
         <!-- ALL LOCATIONS GRID -->
         <section class="space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <div class="flex flex-row sm:items-center justify-between gap-2 sm:gap-4">
                 <h2 class="font-display text-xl sm:text-2xl font-bold text-pop-dark flex items-center gap-2">
-                    <span>📍 รายการจุดแตะบัตรทั้งหมด</span>
+                    <span>📍จุดแตะบัตรทั้งหมด</span>
                 </h2>
                 <span id="resultCountText" class="self-end sm:self-auto text-xs sm:text-sm font-bold text-slate-600 bg-white px-3 py-1 rounded-full border-2 border-pop-dark shadow-neo-sm">
-                    แสดง 10 สถานที่
+                    10 สถานที่
                 </span>
             </div>
 
@@ -152,7 +152,7 @@
             <!-- Empty State (Hidden by default) -->
             <div id="emptyState" class="hidden bg-white rounded-3xl p-10 text-center border-[3px] border-pop-dark shadow-neo my-6">
                 <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-pop-yellow border-[2.5px] border-pop-dark flex items-center justify-center text-4xl shadow-neo-sm">
-                    🕵️‍♂️
+                    🥹
                 </div>
                 <h3 class="font-display text-xl font-bold text-pop-dark mb-1">ไม่พบจุดแตะบัตรที่คุณค้นหา</h3>
                 <p class="text-sm text-slate-500 mb-5">ลองเปลี่ยนคำค้นหา หรือพิมพ์ชื่อตึกอื่นดูนะ!</p>
