@@ -6,6 +6,7 @@
 let locationsData = (typeof baseLocations !== 'undefined') 
     ? baseLocations.filter(loc => String(loc.status || 'Y').trim().toUpperCase() !== 'N' && loc.lat != null && loc.lng != null) 
     : [];
+
 let userLocation = {
     lat: 13.757155,
     lng: 100.486346,
@@ -14,8 +15,9 @@ let userLocation = {
     label: "กำลังจับพิกัดสด..."
 };
 let watchId = null;
-let activeModalLocationId = null;
 let lastKnownHeroId = null;
+let globalSlideIndex = 0; // 0 = image1 (อาคาร), 1 = image2 (จุดแตะบัตร)
+let slideshowTimer = null;
 
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
@@ -178,7 +180,90 @@ function hideGPSAlertBanner() {
 }
 
 // ==========================================
-// 4. RENDERING HERO (NEAREST) & GRID CARDS
+// 4. IMAGE SLIDESHOW CONTROLLER (image1 <-> image2)
+// ==========================================
+function getSlideHTML(loc, isHero = false) {
+    const img1 = loc.image1 || loc.image || '';
+    const img2 = loc.image2 || '';
+    const hasBoth = Boolean(img1 && img2);
+    const key = isHero ? 'hero' : loc.id;
+    const fallback = 'https://placehold.co/600x400/8338EC/FFFFFF?text=Check-in+Spot';
+
+    if (!hasBoth) {
+        return `
+            <img 
+                src="${img1 || fallback}" 
+                alt="${loc.name}" 
+                onerror="this.src='${fallback}'"
+                class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+            >
+        `;
+    }
+
+    const isShowingImg1 = (globalSlideIndex === 0);
+
+    return `
+        <div class="slideshow-box relative w-full h-full cursor-pointer select-none group/slide" data-slide-id="${key}" onclick="toggleSlide('${key}')" title="คลิกเพื่อสลับรูปอาคาร / รูปจุดแตะบัตร">
+            <!-- Slide Image 1 (Building) -->
+            <img 
+                id="slide-img1-${key}"
+                src="${img1}" 
+                alt="${loc.name} - รูปอาคาร" 
+                onerror="this.src='${fallback}'"
+                class="slide-img-1 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-100' : 'opacity-0'}"
+            >
+
+            <!-- Slide Image 2 (Card Tap Machine) -->
+            <img 
+                id="slide-img2-${key}"
+                src="${img2}" 
+                alt="${loc.name} - รูปจุดแตะบัตรจริง" 
+                onerror="this.src='https://placehold.co/600x400/FFD166/1E1B2E?text=จุดติดตั้งเครื่อง'"
+                class="slide-img-2 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-0' : 'opacity-100'}"
+            >
+        </div>
+    `;
+}
+
+function updateSlideElement(key, slideIdx) {
+    const img1 = document.getElementById(`slide-img1-${key}`);
+    const img2 = document.getElementById(`slide-img2-${key}`);
+
+    if (img1 && img2) {
+        if (slideIdx === 0) {
+            img1.classList.remove('opacity-0');
+            img1.classList.add('opacity-100');
+            img2.classList.remove('opacity-100');
+            img2.classList.add('opacity-0');
+        } else {
+            img1.classList.remove('opacity-100');
+            img1.classList.add('opacity-0');
+            img2.classList.remove('opacity-0');
+            img2.classList.add('opacity-100');
+        }
+    }
+}
+
+function toggleSlide(key) {
+    const img1 = document.getElementById(`slide-img1-${key}`);
+    if (!img1) return;
+    const isShowingImg1 = img1.classList.contains('opacity-100');
+    updateSlideElement(key, isShowingImg1 ? 1 : 0);
+}
+
+function startSlideshowTimer() {
+    if (slideshowTimer) clearInterval(slideshowTimer);
+    slideshowTimer = setInterval(() => {
+        globalSlideIndex = (globalSlideIndex === 0) ? 1 : 0;
+        document.querySelectorAll('.slideshow-box').forEach(box => {
+            const key = box.getAttribute('data-slide-id');
+            if (key) updateSlideElement(key, globalSlideIndex);
+        });
+    }, 3500); // changes every 3.5 seconds
+}
+
+// ==========================================
+// 5. RENDERING HERO (NEAREST) & GRID CARDS
 // ==========================================
 function recalculateAndRender() {
     // 1. Recalculate distance for each location using current userLocation
@@ -200,11 +285,6 @@ function recalculateAndRender() {
 
     // 4. Filter & re-sort grid cards
     handleSearchAndFilter();
-
-    // 5. If modal is currently open, update its distance live as well!
-    if (activeModalLocationId !== null) {
-        updateOpenModalDistance(activeModalLocationId);
-    }
 }
 
 function renderNearestHero(spot) {
@@ -233,16 +313,11 @@ function renderNearestHero(spot) {
             <div class="hidden sm:flex absolute -right-6 -bottom-6 w-36 h-36 rounded-full bg-white/30 border-2 border-pop-dark/10 items-center justify-center pointer-events-none"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center relative z-10">
-                <!-- Image Column -->
+                <!-- Image Column with Slideshow -->
                 <div class="lg:col-span-5 relative group">
                     <div class="h-52 sm:h-60 w-full rounded-2xl overflow-hidden border-[3px] border-pop-dark shadow-neo bg-slate-200 relative">
-                        <img 
-                            src="${spot.image1 || spot.image}" 
-                            alt="${spot.name}" 
-                            onerror="this.src='https://placehold.co/600x400/FF5D8F/FFFFFF?text=Check-in+Spot'"
-                            class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                        >
-                        <div class="absolute top-3 left-3 bg-pop-dark text-pop-yellow font-display font-bold text-xs px-3 py-1.5 rounded-xl border-2 border-white flex items-center gap-1.5 shadow-md">
+                        ${getSlideHTML(spot, true)}
+                        <div class="absolute top-3 left-3 bg-pop-dark text-pop-yellow font-display font-bold text-xs px-3 py-1.5 rounded-xl border-2 border-white flex items-center gap-1.5 shadow-md pointer-events-none z-10">
                             <i class="ph-fill ph-crown text-base text-pop-yellow"></i>
                             <span>อันดับ #1 ใกล้คุณที่สุด</span>
                         </div>
@@ -282,26 +357,18 @@ function renderNearestHero(spot) {
                         </div>
                     </div>
 
-                    <!-- Action Buttons -->
-                    <div class="flex flex-col sm:flex-row gap-3 pt-1">
+                    <!-- Single Primary Action Button: Google Maps -->
+                    <div class="pt-1">
                         <a 
                             id="heroMapsLink"
                             href="${mapsUrl}" 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            class="btn-neo flex-1 bg-pop-blue hover:bg-blue-600 text-white font-display font-bold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2"
+                            class="btn-neo w-full bg-pop-blue hover:bg-blue-600 text-white font-display font-bold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
                         >
                             <i class="ph-bold ph-navigation-arrow text-xl"></i>
-                            <span>นำทางด้วย Google Maps</span>
+                            <span>นำทางด้วย Google Maps
                         </a>
-
-                        <button 
-                            onclick="openTapModal(${spot.id})"
-                            class="btn-neo bg-white hover:bg-pop-mint text-pop-dark font-display font-bold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2"
-                        >
-                            <i class="ph-fill ph-info text-xl text-pop-purple"></i>
-                            <span>ดูรายละเอียด</span>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -372,17 +439,13 @@ function renderLocationsGrid(list) {
 
         return `
             <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300" data-id="${loc.id}">
-                <!-- Top Image & Badges -->
+                <!-- Top Image with Slideshow & Badges -->
                 <div>
-                    <div class="relative h-44 w-full bg-slate-100 border-b-[3px] border-pop-dark overflow-hidden group">
-                        <img 
-                            src="${loc.image1 || loc.image}" 
-                            alt="${loc.name}" 
-                            onerror="this.src='https://placehold.co/600x400/8338EC/FFFFFF?text=Check-in+Spot'"
-                            class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                        >
-                        <!-- Rank / Nearest Badge -->
-                        <div class="absolute top-3 left-3 flex items-center gap-1.5">
+                    <div class="relative h-48 w-full bg-slate-100 border-b-[3px] border-pop-dark overflow-hidden group">
+                        ${getSlideHTML(loc, false)}
+
+                        <!-- Rank / Nearest Badge (Top Left) -->
+                        <div class="absolute top-3 left-3 flex items-center gap-1.5 pointer-events-none z-10">
                             <span class="w-8 h-8 rounded-xl ${isNearest ? 'bg-pop-pink text-white' : 'bg-pop-yellow text-pop-dark'} border-2 border-pop-dark font-display font-bold text-xs flex items-center justify-center shadow-neo-sm">
                                 #${index + 1}
                             </span>
@@ -393,8 +456,8 @@ function renderLocationsGrid(list) {
                             ` : ''}
                         </div>
 
-                        <!-- Distance Meter Overlay -->
-                        <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm">
+                        <!-- Distance Meter Overlay (Bottom) -->
+                        <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm pointer-events-none z-10">
                             <div class="flex items-center gap-1.5 text-pop-dark font-display font-bold text-sm">
                                 <i class="ph-fill ph-footprints text-pop-pink text-base"></i>
                                 <span class="dist-val">${loc.distanceMeters.toLocaleString('th-TH')} เมตร</span>
@@ -424,24 +487,17 @@ function renderLocationsGrid(list) {
                     </div>
                 </div>
 
-                <!-- Card Footer Actions -->
-                <div class="px-4 pb-4 sm:px-5 sm:pb-5 pt-1 flex items-center gap-2.5">
+                <!-- Card Footer Actions: Single Full-Width Maps Button -->
+                <div class="px-4 pb-4 sm:px-5 sm:pb-5 pt-1">
                     <a 
                         href="${mapsUrl}" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        class="btn-neo flex-1 bg-pop-yellow hover:bg-[#ffc63b] text-pop-dark font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5"
+                        class="btn-neo w-full bg-pop-yellow hover:bg-[#ffc63b] text-pop-dark font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
                     >
                         <i class="ph-bold ph-navigation-arrow text-base"></i>
                         <span>นำทาง Google Maps</span>
                     </a>
-                    <button 
-                        onclick="openTapModal(${loc.id})"
-                        title="ดูจุดสังเกตที่ตั้งเครื่องแตะบัตร"
-                        class="btn-neo bg-white hover:bg-pop-mint text-pop-dark font-bold p-2.5 rounded-xl text-sm flex items-center justify-center shrink-0"
-                    >
-                        <i class="ph-bold ph-info text-lg"></i>
-                    </button>
                 </div>
             </article>
         `;
@@ -449,7 +505,7 @@ function renderLocationsGrid(list) {
 }
 
 // ==========================================
-// 5. MODAL, TOAST & UI HELPERS
+// 6. SEARCH, TOAST & CLOCK HELPERS
 // ==========================================
 function clearSearch() {
     const input = document.getElementById('searchInput');
@@ -463,53 +519,6 @@ function resetAllFilters() {
     if (input) input.value = '';
     if (sortSelect) sortSelect.value = 'distance-asc';
     handleSearchAndFilter();
-}
-
-function openTapModal(locationId) {
-    activeModalLocationId = locationId;
-    const spot = locationsData.find(l => l.id === locationId);
-    if (!spot) return;
-
-    document.getElementById('modalLocationName').textContent = spot.name;
-    document.getElementById('modalGate').textContent = spot.gateInfo;
-    document.getElementById('modalOpenHours').textContent = spot.openHours;
-
-    // Set image2 (Terminal Photo)
-    const modalImg = document.getElementById('modalImage2');
-    if (modalImg) {
-        modalImg.src = spot.image2 || spot.image1 || spot.image || 'https://placehold.co/600x400/FFD166/1E1B2E?text=จุดติดตั้งเครื่อง';
-        modalImg.alt = `รูปจุดตั้งเครื่องจริง ${spot.name}`;
-    }
-
-    updateOpenModalDistance(locationId);
-
-    const modal = document.getElementById('tapModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function updateOpenModalDistance(locationId) {
-    const spot = locationsData.find(l => l.id === locationId);
-    if (!spot) return;
-
-    const distEl = document.getElementById('modalDistanceInfo');
-    const mapLinkEl = document.getElementById('modalMapLink');
-    if (distEl) {
-        const distText = (spot.distanceMeters !== undefined) 
-            ? `${spot.distanceMeters.toLocaleString('th-TH')} เมตร` 
-            : 'กำลังคำนวณระยะ...';
-        distEl.textContent = `ระยะห่างจากคุณ: ${distText}`;
-    }
-    if (mapLinkEl) {
-        mapLinkEl.href = getGoogleMapsUrl(spot.lat, spot.lng, spot.name);
-    }
-}
-
-function closeTapModal() {
-    activeModalLocationId = null;
-    const modal = document.getElementById('tapModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
 }
 
 let toastTimeout;
@@ -546,5 +555,6 @@ function startClock() {
 window.onload = function () {
     startClock();
     recalculateAndRender();
-    startLiveTracking(); // Automatically start continuous real-time tracking
+    startLiveTracking();     // Continuous real-time GPS tracking
+    startSlideshowTimer();   // Continuous automatic slideshow between image1 & image2
 };
