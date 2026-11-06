@@ -317,10 +317,6 @@ function renderNearestHero(spot) {
                 <div class="lg:col-span-5 relative group">
                     <div class="h-52 sm:h-60 w-full rounded-2xl overflow-hidden border-[3px] border-pop-dark shadow-neo bg-slate-200 relative">
                         ${getSlideHTML(spot, true)}
-                        <div class="absolute top-3 left-3 bg-pop-dark text-pop-yellow font-display font-bold text-xs px-3 py-1.5 rounded-xl border-2 border-white flex items-center gap-1.5 shadow-md pointer-events-none z-10">
-                            <i class="ph-fill ph-crown text-base text-pop-yellow"></i>
-                            <span>อันดับ #1 ใกล้คุณที่สุด</span>
-                        </div>
                     </div>
                 </div>
 
