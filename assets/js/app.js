@@ -837,9 +837,12 @@ function fitAllBuildingPins() {
             hasPoint = true;
         }
     });
+    // Include user pin only if user is within Siriraj area (< 2 km) to avoid zooming out to whole city
     if (userLocation.hasRealGPS) {
-        bounds.extend(new google.maps.LatLng(userLocation.lat, userLocation.lng));
-        hasPoint = true;
+        const distFromSiriraj = calculateDistanceInMeters(userLocation.lat, userLocation.lng, 13.7578, 100.4850);
+        if (distFromSiriraj <= 2000) {
+            bounds.extend(new google.maps.LatLng(userLocation.lat, userLocation.lng));
+        }
     }
     if (hasPoint) {
         googleMap.fitBounds(bounds);
