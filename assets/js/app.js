@@ -19,6 +19,14 @@ let lastKnownHeroId = null;
 let globalSlideIndex = 0; // 0 = image1 (อาคาร), 1 = image2 (จุดแตะบัตร)
 let slideshowTimer = null;
 
+// Map & View State (Google Maps)
+let currentView = 'list'; // 'list' | 'map'
+let googleMap = null;
+let gMarkers = [];
+let userGMarker = null;
+let userGCircle = null;
+let activeInfoWindow = null;
+
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
 // ==========================================
@@ -132,6 +140,9 @@ function onPositionSuccess(position) {
 
     // Recalculate distances and re-order in real time!
     recalculateAndRender();
+
+    // Update user marker on interactive map
+    if (googleMap) updateUserGoogleMapPosition();
 }
 
 function onPositionError(error) {
@@ -408,6 +419,7 @@ function handleSearchAndFilter() {
     }
 
     renderLocationsGrid(filtered);
+    if (googleMap) renderGoogleMapPins(filtered);
 }
 
 function renderLocationsGrid(list) {
@@ -546,6 +558,323 @@ function startClock() {
     };
     update();
     setInterval(update, 1000);
+}
+
+// ==========================================
+// 7. INTERACTIVE MAP CONTROLLER (GOOGLE MAPS)
+// ==========================================
+
+// Custom SVG Pin Data URIs for crisp rendering across all screen resolutions
+const NEAREST_PIN_SVG = encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="58" viewBox="0 0 48 58">
+  <defs>
+    <filter id="shadowHot" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#FF5D8F" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <path d="M24 2C12.95 2 4 10.95 4 22c0 14.2 18.2 30.5 19 31.2a1.5 1.5 0 0 0 2 0C25.8 52.5 44 36.2 44 22 44 10.95 35.05 2 24 2z" fill="#FF5D8F" stroke="#FFFFFF" stroke-width="2" filter="url(#shadowHot)"/>
+  <circle cx="24" cy="21" r="13" fill="#FFFFFF"/>
+  <text x="24" y="27" font-size="15" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">🔥</text>
+</svg>
+`);
+
+const STANDARD_PIN_SVG = encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
+  <defs>
+    <filter id="shadowStd" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#5C3D2E" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <path d="M20 2C10.6 2 3 9.6 3 19c0 12.2 15.5 26.2 16.2 26.8a1.3 1.3 0 0 0 1.6 0C21.5 45.2 37 31.2 37 19 37 9.6 29.4 2 20 2z" fill="#FFB703" stroke="#FFFFFF" stroke-width="2" filter="url(#shadowStd)"/>
+  <circle cx="20" cy="18" r="11" fill="#FFFFFF"/>
+  <text x="20" y="23" font-size="13" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">📍</text>
+</svg>
+`);
+
+const USER_PIN_SVG = encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+  <circle cx="18" cy="18" r="16" fill="#0EA5E9" fill-opacity="0.25"/>
+  <circle cx="18" cy="18" r="9" fill="#0284C7" stroke="#FFFFFF" stroke-width="2.5"/>
+</svg>
+`);
+
+function switchView(viewMode) {
+    currentView = viewMode;
+    const listGrid = document.getElementById('locationsGrid');
+    const emptyState = document.getElementById('emptyState');
+    const mapContainer = document.getElementById('mapViewContainer');
+
+    const listBtn = document.getElementById('viewListBtn');
+    const mapBtn = document.getElementById('viewMapBtn');
+    const floatIcon = document.getElementById('floatingToggleIcon');
+    const floatText = document.getElementById('floatingToggleText');
+
+    if (viewMode === 'map') {
+        if (listGrid) listGrid.classList.add('hidden');
+        if (emptyState) emptyState.classList.add('hidden');
+        if (mapContainer) mapContainer.classList.remove('hidden');
+
+        // Update Top Switcher Buttons
+        if (listBtn) {
+            listBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-slate-600 hover:text-pop-dark";
+        }
+        if (mapBtn) {
+            mapBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 bg-gradient-to-r from-pop-pink to-pink-400 text-white shadow-sm";
+        }
+
+        // Update Floating Button
+        if (floatIcon) floatIcon.className = "ph-bold ph-list-dashes text-base";
+        if (floatText) floatText.textContent = "ดูรายการการ์ด";
+
+        // Initialize or refresh Google Map
+        if (!googleMap) {
+            if (typeof google !== 'undefined' && google.maps) {
+                initGoogleMap();
+            }
+        } else {
+            setTimeout(() => {
+                google.maps.event.trigger(googleMap, 'resize');
+                if (userLocation.hasRealGPS) {
+                    googleMap.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+                }
+            }, 100);
+        }
+
+        if (typeof gtag === 'function') {
+            gtag('event', 'switch_view', { view_mode: 'map' });
+        }
+    } else {
+        // 'list' view
+        if (listGrid) listGrid.classList.remove('hidden');
+        if (mapContainer) mapContainer.classList.add('hidden');
+
+        // Update Top Switcher Buttons
+        if (listBtn) {
+            listBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 bg-gradient-to-r from-pop-pink to-pink-400 text-white shadow-sm";
+        }
+        if (mapBtn) {
+            mapBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-slate-600 hover:text-pop-dark";
+        }
+
+        // Update Floating Button
+        if (floatIcon) floatIcon.className = "ph-bold ph-map-trifold text-base";
+        if (floatText) floatText.textContent = "ดูแผนที่ภาพรวม";
+
+        if (typeof gtag === 'function') {
+            gtag('event', 'switch_view', { view_mode: 'list' });
+        }
+    }
+}
+
+function toggleView() {
+    switchView(currentView === 'list' ? 'map' : 'list');
+}
+
+function initGoogleMap() {
+    if (googleMap || typeof google === 'undefined' || !google.maps) return;
+    const mapElement = document.getElementById('sirirajMap');
+    if (!mapElement) return;
+
+    // Center on Siriraj Hospital
+    googleMap = new google.maps.Map(mapElement, {
+        center: { lat: 13.7578, lng: 100.4850 },
+        zoom: 17,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControl: true,
+        zoomControlOptions: {
+            position: google.maps.ControlPosition.LEFT_TOP
+        },
+        styles: [
+            {
+                featureType: "poi.business",
+                stylers: [{ visibility: "off" }]
+            },
+            {
+                featureType: "transit",
+                stylers: [{ visibility: "simplified" }]
+            }
+        ]
+    });
+
+    // Close any opened InfoWindow when clicking outside on the map
+    googleMap.addListener('click', () => {
+        if (activeInfoWindow) {
+            activeInfoWindow.close();
+            activeInfoWindow = null;
+        }
+    });
+
+    renderGoogleMapPins();
+    if (userLocation.hasRealGPS) {
+        updateUserGoogleMapPosition();
+    }
+}
+
+// Make initGoogleMap available globally for the Google Maps script callback
+window.initGoogleMap = initGoogleMap;
+
+function renderGoogleMapPins(filterList = null) {
+    if (!googleMap) return;
+
+    // Clear existing markers
+    gMarkers.forEach(m => m.setMap(null));
+    gMarkers = [];
+
+    const targetList = filterList || locationsData;
+    const overallNearestId = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters)[0]?.id;
+
+    targetList.forEach(loc => {
+        if (loc.lat == null || loc.lng == null) return;
+
+        const isNearest = (loc.id === overallNearestId);
+        const iconSvg = isNearest ? NEAREST_PIN_SVG : STANDARD_PIN_SVG;
+        const iconSize = isNearest ? new google.maps.Size(48, 58) : new google.maps.Size(40, 50);
+        const anchorPt = isNearest ? new google.maps.Point(24, 55) : new google.maps.Point(20, 48);
+
+        const marker = new google.maps.Marker({
+            position: { lat: loc.lat, lng: loc.lng },
+            map: googleMap,
+            title: loc.name,
+            zIndex: isNearest ? 100 : 10,
+            icon: {
+                url: `data:image/svg+xml;charset=UTF-8,${iconSvg}`,
+                size: iconSize,
+                scaledSize: iconSize,
+                anchor: anchorPt
+            }
+        });
+
+        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.name);
+        const popupImg = loc.image1 || 'assets/images/noimage.jpg';
+        const distText = (loc.distanceMeters !== undefined) 
+            ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร (${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : (loc.distanceMeters/1000).toFixed(1) + ' กม.'})`
+            : 'กำลังคำนวณ...';
+
+        const infoContent = `
+            <div style="font-family: 'Kanit', sans-serif; padding: 4px; max-width: 215px; color: #5C3D2E;">
+                <div style="height: 100px; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background-color: #f1f5f9;">
+                    <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'" style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+                <div style="font-weight: 700; font-size: 14px; line-height: 1.3; margin-bottom: 4px; color: #5C3D2E;">${loc.name}</div>
+                <div style="font-size: 12px; font-weight: 600; color: #FF5D8F; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                    <span>👣 ${distText}</span>
+                </div>
+                <div style="font-size: 11px; color: #64748b; margin-bottom: 10px; line-height: 1.3;">
+                    <strong style="color: #5C3D2E;">จุดสแกน:</strong> ${loc.gateInfo || '-'}
+                </div>
+                <a 
+                    href="${mapsUrl}" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    onclick="trackMapsClick('${loc.name}', false)" 
+                    style="display: block; text-align: center; background: linear-gradient(to right, #4CC9F0, #4BA3F5); color: #ffffff; font-weight: 700; padding: 8px 12px; border-radius: 12px; text-decoration: none; font-size: 12px; box-shadow: 0 2px 6px rgba(76,201,240,0.35);"
+                >
+                    🧭 นำทาง Google Maps
+                </a>
+            </div>
+        `;
+
+        const infoWindow = new google.maps.InfoWindow({
+            content: infoContent,
+            maxWidth: 240
+        });
+
+        marker.addListener('click', () => {
+            if (activeInfoWindow) activeInfoWindow.close();
+            infoWindow.open(googleMap, marker);
+            activeInfoWindow = infoWindow;
+        });
+
+        gMarkers.push(marker);
+    });
+}
+
+function updateUserGoogleMapPosition() {
+    if (!googleMap || !userLocation.hasRealGPS) return;
+
+    const userPos = { lat: userLocation.lat, lng: userLocation.lng };
+
+    if (userGMarker) {
+        userGMarker.setPosition(userPos);
+    } else {
+        userGMarker = new google.maps.Marker({
+            position: userPos,
+            map: googleMap,
+            title: "คุณอยู่ที่นี่ (ตำแหน่งสด)",
+            zIndex: 9999,
+            icon: {
+                url: `data:image/svg+xml;charset=UTF-8,${USER_PIN_SVG}`,
+                size: new google.maps.Size(36, 36),
+                scaledSize: new google.maps.Size(36, 36),
+                anchor: new google.maps.Point(18, 18)
+            }
+        });
+
+        const userWindow = new google.maps.InfoWindow({
+            content: `
+                <div style="font-family: 'Kanit', sans-serif; font-size: 13px; font-weight: 600; color: #0369a1; padding: 4px;">
+                    📍 คุณอยู่ที่นี่ (ตำแหน่งสด)
+                </div>
+            `
+        });
+        userGMarker.addListener('click', () => {
+            if (activeInfoWindow) activeInfoWindow.close();
+            userWindow.open(googleMap, userGMarker);
+            activeInfoWindow = userWindow;
+        });
+    }
+
+    if (userLocation.accuracy) {
+        if (userGCircle) {
+            userGCircle.setCenter(userPos);
+            userGCircle.setRadius(userLocation.accuracy);
+        } else {
+            userGCircle = new google.maps.Circle({
+                map: googleMap,
+                center: userPos,
+                radius: userLocation.accuracy,
+                strokeColor: '#0284C7',
+                strokeOpacity: 0.5,
+                strokeWeight: 1.5,
+                fillColor: '#38BDF8',
+                fillOpacity: 0.15,
+                zIndex: 1
+            });
+        }
+    }
+}
+
+function recenterMapToUser() {
+    if (!googleMap) return;
+    if (userLocation.hasRealGPS) {
+        googleMap.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+        googleMap.setZoom(18);
+        showToast("📍 เล็งพิกัดตำแหน่งคุณแล้ว", `พิกัดสด (±${userLocation.accuracy || 0} ม.)`);
+    } else {
+        startLiveTracking();
+        showToast("📡 กำลังค้นหาตำแหน่ง...", "กรุณารอรับสัญญาณ GPS สักครู่");
+    }
+}
+
+function fitAllBuildingPins() {
+    if (!googleMap || gMarkers.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    let hasPoint = false;
+    gMarkers.forEach(m => {
+        if (m.getMap()) {
+            bounds.extend(m.getPosition());
+            hasPoint = true;
+        }
+    });
+    if (userLocation.hasRealGPS) {
+        bounds.extend(new google.maps.LatLng(userLocation.lat, userLocation.lng));
+        hasPoint = true;
+    }
+    if (hasPoint) {
+        googleMap.fitBounds(bounds);
+    }
 }
 
 // Initialize on Window Load
