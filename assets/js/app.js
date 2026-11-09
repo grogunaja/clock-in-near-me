@@ -322,21 +322,21 @@ function renderNearestHero(spot) {
                     <div class="space-y-2">
                         <!-- Giant Distance Meter Pill -->
                         <div class="inline-flex flex-wrap items-center gap-2">
-                            <span class="bg-pop-pink text-white font-display font-bold text-lg sm:text-2xl px-4 py-1.5 rounded-2xl border-[2.5px] border-pop-dark shadow-neo-sm flex items-center gap-2">
+                            <span class="bg-pop-pink text-white font-display font-semibold text-lg sm:text-2xl px-4 py-1.5 rounded-2xl border-[2.5px] border-pop-dark shadow-neo-sm flex items-center gap-2">
                                 <i class="ph-fill ph-map-pin-area"></i>
                                 <span id="heroDistanceText">${formatDistanceBadge(spot.distanceMeters)}</span>
                             </span>
                         </div>
 
-                        <h3 class="font-display text-2xl sm:text-3xl font-bold text-pop-dark pt-1">
+                        <h3 class="font-display text-2xl sm:text-3xl font-semibold text-pop-dark pt-1">
                             ${spot.name}
                         </h3>
 
-                        <div class="bg-white/90 rounded-2xl p-3.5 border-2 border-pop-dark text-xs sm:text-sm">
+                        <div class="bg-white/90 rounded-2xl p-3.5 border-2 border-pop-dark text-sm sm:text-base">
                             <div class="flex items-center gap-2">
                                 <i class="ph-fill ph-map-pin text-pop-purple text-lg shrink-0"></i>
                                 <div>
-                                    <span class="font-bold text-pop-dark">${spot.gateInfo}</span>
+                                    <span class="font-mudium text-pop-dark">${spot.gateInfo}</span>
                                 </div>
                             </div>
                         </div>
@@ -349,7 +349,7 @@ function renderNearestHero(spot) {
                             href="${mapsUrl}" 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            class="btn-neo w-full bg-pop-blue hover:bg-blue-600 text-white font-display font-bold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
+                            class="btn-neo w-full bg-pop-blue hover:bg-blue-600 text-white font-display font-semibold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
                         >
                             <i class="ph-bold ph-navigation-arrow text-xl"></i>
                             <span>นำทางด้วย Google Maps</span>
@@ -431,11 +431,11 @@ function renderLocationsGrid(list) {
 
                         <!-- Rank / Nearest Badge (Top Left) -->
                         <div class="absolute top-3 left-3 flex items-center gap-1.5 pointer-events-none z-10">
-                            <span class="w-8 h-8 rounded-xl ${isNearest ? 'bg-pop-pink text-white' : 'bg-pop-yellow text-pop-dark'} border-2 border-pop-dark font-display font-bold text-xs flex items-center justify-center shadow-neo-sm">
+                            <span class="w-8 h-8 rounded-xl ${isNearest ? 'bg-pop-pink text-white' : 'bg-pop-yellow text-pop-dark'} border-2 border-pop-dark font-display font-semibold text-xs flex items-center justify-center shadow-neo-sm">
                                 #${index + 1}
                             </span>
                             ${isNearest ? `
-                                <span class="bg-pop-pink text-white text-xs font-bold px-2.5 py-1 rounded-xl border-2 border-pop-dark shadow-neo-sm flex items-center gap-1">
+                                <span class="bg-pop-pink text-white text-xs font-semibold px-2.5 py-1 rounded-xl border-2 border-pop-dark shadow-neo-sm flex items-center gap-1">
                                     🔥 ใกล้สุด!
                                 </span>
                             ` : ''}
@@ -446,7 +446,7 @@ function renderLocationsGrid(list) {
                     <div class="p-4 sm:p-5 space-y-2.5">
                         <!-- Distance Meter Box (Above building name) -->
                         <div class="flex items-center justify-between bg-pop-bg px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm">
-                            <div class="flex items-center gap-1.5 text-pop-dark font-display font-bold text-xs sm:text-sm">
+                            <div class="flex items-center gap-1.5 text-pop-dark font-display font-semibold text-xs sm:text-sm">
                                 <i class="ph-fill ph-footprints text-pop-pink text-base"></i>
                                 <span class="dist-val">${loc.distanceMeters.toLocaleString('th-TH')} เมตร</span>
                             </div>
@@ -457,11 +457,11 @@ function renderLocationsGrid(list) {
 
                         <!-- Building Name & Scan Location (Tightly grouped) -->
                         <div class="space-y-0.5">
-                            <h3 class="font-display text-lg font-bold text-pop-dark leading-snug line-clamp-1" title="${loc.name}">
+                            <h3 class="font-display text-lg font-semibold text-pop-dark leading-snug line-clamp-1" title="${loc.name}">
                                 ${loc.name}
                             </h3>
 
-                            <p class="text-slate-700 flex items-center gap-1.5 text-xs">
+                            <p class="text-slate-700 flex items-center gap-1.5 text-sm">
                                 <i class="ph-bold ph-map-pin text-pop-purple text-base shrink-0"></i>
                                 <span>${loc.gateInfo}</span>
                             </p>
@@ -475,7 +475,7 @@ function renderLocationsGrid(list) {
                         href="${mapsUrl}" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        class="btn-neo w-full bg-pop-yellow hover:bg-[#ffc63b] text-pop-dark font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
+                        class="btn-neo w-full bg-pop-yellow hover:bg-[#ffc63b] text-pop-dark font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
                     >
                         <i class="ph-bold ph-navigation-arrow text-base"></i>
                         <span>นำทางด้วย Google Maps</span>

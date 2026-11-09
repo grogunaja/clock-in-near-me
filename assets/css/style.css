@@ -82,6 +82,15 @@ body {
     animation: floatSlow 3.5s ease-in-out infinite;
 }
 
+/* Horizontal Floating Animation (ขยับหน้า-หลัง) */
+@keyframes floatHorizontal {
+    0%, 100% { transform: translateX(0px) rotate(0deg); }
+    50% { transform: translateX(6px) rotate(2deg); }
+}
+.float-horizontal {
+    animation: floatHorizontal 3s ease-in-out infinite;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 10px;
