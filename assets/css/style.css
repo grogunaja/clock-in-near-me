@@ -10,7 +10,9 @@ body {
     overflow-x: hidden;
 }
 
-/* Neo-brutalist button press effect */
+/* ==========================================
+   1. NEO-BRUTALIST / RETRO-POP CORE CLASSES
+   ========================================== */
 .btn-neo {
     border: 2.5px solid #1E1B2E;
     box-shadow: 4px 4px 0px 0px #1E1B2E;
@@ -25,6 +27,47 @@ body {
     box-shadow: 1px 1px 0px 0px #1E1B2E;
 }
 
+/* Button Color Variants */
+.btn-pink {
+    background-color: #FF5D8F;
+    color: #FFFFFF;
+}
+.btn-pink:hover {
+    background-color: #ff437b;
+}
+
+.btn-yellow {
+    background-color: #FFD166;
+    color: #1E1B2E;
+}
+.btn-yellow:hover {
+    background-color: #ffc63b;
+}
+
+.btn-mint {
+    background-color: #06D6A0;
+    color: #1E1B2E;
+}
+.btn-mint:hover {
+    background-color: #05c090;
+}
+
+.btn-blue {
+    background-color: #3A86FF;
+    color: #FFFFFF;
+}
+.btn-blue:hover {
+    background-color: #2563EB;
+}
+
+.btn-white {
+    background-color: #FFFFFF;
+    color: #1E1B2E;
+}
+.btn-white:hover {
+    background-color: #FFFDF7;
+}
+
 .card-neo {
     border: 3px solid #1E1B2E;
     box-shadow: 5px 5px 0px 0px #1E1B2E;
@@ -35,7 +78,98 @@ body {
     box-shadow: 8px 8px 0px 0px #1E1B2E;
 }
 
-/* Radar Pulse Animation */
+.badge-neo {
+    border: 2px solid #1E1B2E;
+    box-shadow: 2px 2px 0px 0px #1E1B2E;
+    border-radius: 9999px;
+}
+
+/* Pill View Switcher Container & Tabs */
+.pill-container-neo {
+    background: #FFFFFF;
+    padding: 4px;
+    border-radius: 1rem;
+    border: 2px solid #1E1B2E;
+    box-shadow: 2px 2px 0px 0px #1E1B2E;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tab-btn-active {
+    padding: 6px 12px;
+    border-radius: 0.75rem;
+    font-family: 'Mitr', sans-serif;
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #FF5D8F;
+    color: #FFFFFF;
+    border: 2px solid #1E1B2E;
+    box-shadow: 2px 2px 0px 0px #1E1B2E;
+    transition: all 0.15s ease;
+}
+
+.tab-btn-inactive {
+    padding: 6px 12px;
+    border-radius: 0.75rem;
+    font-family: 'Mitr', sans-serif;
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #1E1B2E;
+    transition: background-color 0.15s ease;
+}
+.tab-btn-inactive:hover {
+    background-color: rgba(255, 93, 143, 0.15);
+}
+
+/* Map Floating Quick Controls & Legend */
+.btn-map-control {
+    background: #FFFFFF;
+    color: #1E1B2E;
+    padding: 8px 12px;
+    border-radius: 1rem;
+    border: 2px solid #1E1B2E;
+    box-shadow: 2px 2px 0px 0px #1E1B2E;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.btn-map-control:hover {
+    background-color: #FFFDF7;
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px 0px #1E1B2E;
+}
+.btn-map-control:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px 0px #1E1B2E;
+}
+
+.map-legend-banner {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    padding: 8px 16px;
+    border-radius: 1rem;
+    border: 2px solid #1E1B2E;
+    box-shadow: 2px 2px 0px 0px #1E1B2E;
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* ==========================================
+   2. KEYFRAME ANIMATIONS
+   ========================================== */
 @keyframes radar-pulse {
     0% {
         transform: scale(0.95);
@@ -54,26 +188,6 @@ body {
     animation: radar-pulse 2s infinite;
 }
 
-/* Live GPS Pulse Dot */
-@keyframes live-ping {
-    0% {
-        transform: scale(0.9);
-        opacity: 0.9;
-    }
-    70% {
-        transform: scale(1.9);
-        opacity: 0;
-    }
-    100% {
-        transform: scale(0.9);
-        opacity: 0;
-    }
-}
-.live-pulse {
-    animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-/* Floating Animation */
 @keyframes floatSlow {
     0%, 100% { transform: translateY(0px) rotate(0deg); }
     50% { transform: translateY(-6px) rotate(2deg); }
@@ -82,7 +196,6 @@ body {
     animation: floatSlow 3.5s ease-in-out infinite;
 }
 
-/* Horizontal Floating Animation (ขยับหน้า-หลัง) */
 @keyframes floatHorizontal {
     0%, 100% { transform: translateX(0px) rotate(0deg); }
     50% { transform: translateX(6px) rotate(2deg); }
@@ -91,7 +204,9 @@ body {
     animation: floatHorizontal 3s ease-in-out infinite;
 }
 
-/* Custom Scrollbar */
+/* ==========================================
+   3. CUSTOM SCROLLBAR
+   ========================================== */
 ::-webkit-scrollbar {
     width: 10px;
 }
@@ -108,7 +223,9 @@ body {
     background: #FF5D8F;
 }
 
-/* Custom Google Maps InfoWindow & Control Styling */
+/* ==========================================
+   4. GOOGLE MAPS INFOWINDOW & POPUP STYLING
+   ========================================== */
 .gm-style .gm-style-iw-c {
     border-radius: 1.25rem !important;
     padding: 10px !important;
@@ -122,4 +239,62 @@ body {
 }
 .gm-style .gm-style-iw-tc::after {
     background: #FFFFFF !important;
+}
+
+.map-popup-card {
+    font-family: 'Kanit', sans-serif;
+    padding: 4px;
+    max-width: 215px;
+    color: #1E1B2E;
+}
+.map-popup-img {
+    height: 100px;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    background-color: #f1f5f9;
+}
+.map-popup-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.map-popup-title {
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.3;
+    margin-bottom: 4px;
+    color: #1E1B2E;
+}
+.map-popup-dist {
+    font-size: 12px;
+    font-weight: 600;
+    color: #FF5D8F;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.map-popup-gate {
+    font-size: 11px;
+    color: #64748b;
+    margin-bottom: 10px;
+    line-height: 1.3;
+}
+.map-popup-btn {
+    display: block;
+    text-align: center;
+    background: linear-gradient(to right, #4CC9F0, #4BA3F5);
+    color: #ffffff;
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(76, 201, 240, 0.35);
+    transition: filter 0.15s;
+}
+.map-popup-btn:hover {
+    filter: brightness(1.08);
 }

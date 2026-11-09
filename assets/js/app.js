@@ -85,17 +85,11 @@ function trackMapsClick(buildingName, isHero = false) {
 // 3. CONTINUOUS REAL-TIME GPS TRACKING
 // ==========================================
 function startLiveTracking() {
-    const btnText = document.getElementById('btnFindGPSText');
-    if (btnText) btnText.textContent = "กำลังค้นหา...";
-
     if (!navigator.geolocation) {
-        updateGPSStatusUI('unsupported', 'ไม่รองรับ GPS');
         showGPSAlertBanner('เบราว์เซอร์ไม่รองรับ GPS', 'อุปกรณ์นี้ไม่รองรับระบบตรวจจับตำแหน่ง');
         showToast('⚠️ ไม่รองรับ GPS', 'อุปกรณ์นี้ไม่รองรับระบบตรวจจับตำแหน่ง');
         return;
     }
-
-    updateGPSStatusUI('locating', 'กำลังค้นหาสัญญาณ...');
 
     const geoOptions = {
         enableHighAccuracy: true,
@@ -126,9 +120,7 @@ function onPositionSuccess(position) {
     userLocation.lng = realLng;
     userLocation.accuracy = accuracy;
     userLocation.hasRealGPS = true;
-    userLocation.label = `พิกัดจริง (±${accuracy} ม.)`;
 
-    updateGPSStatusUI('active', `สดเรียลไทม์ (±${accuracy} ม.)`);
     hideGPSAlertBanner();
 
     if (isFirstFix) {
@@ -147,43 +139,11 @@ function onPositionSuccess(position) {
 
 function onPositionError(error) {
     console.warn('Geolocation watch error:', error);
-    if (!userLocation.hasRealGPS) {
-        if (error.code === error.PERMISSION_DENIED) {
-            updateGPSStatusUI('denied', 'ยังไม่อนุญาต GPS');
-            showGPSAlertBanner(
-                'กรุณาเปิดสิทธิ์เข้าถึงตำแหน่ง (GPS)',
-                'เพื่อให้ระบบคำนวณและเรียงลำดับตึกที่ใกล้ที่สุดแบบเรียลไทม์ขณะที่คุณเดิน'
-            );
-        } else {
-            updateGPSStatusUI('error', 'ค้นหาสัญญาณไม่พบ');
-        }
-    }
-}
-
-function updateGPSStatusUI(status, label) {
-    const zoneText = document.getElementById('currentZoneText');
-    const indicator = document.getElementById('gpsLiveIndicator');
-    const btnText = document.getElementById('btnFindGPSText');
-
-    if (zoneText) zoneText.textContent = label;
-    if (btnText) btnText.textContent = "จับพิกัดสด";
-
-    if (indicator) {
-        if (status === 'active') {
-            indicator.innerHTML = `
-                <span class="live-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            `;
-        } else if (status === 'locating') {
-            indicator.innerHTML = `
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-            `;
-        } else {
-            indicator.innerHTML = `
-                <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-            `;
-        }
+    if (!userLocation.hasRealGPS && error.code === error.PERMISSION_DENIED) {
+        showGPSAlertBanner(
+            'กรุณาเปิดสิทธิ์เข้าถึงตำแหน่ง (GPS)',
+            'เพื่อให้ระบบคำนวณและเรียงลำดับตึกที่ใกล้ที่สุดแบบเรียลไทม์ขณะที่คุณเดิน'
+        );
     }
 }
 
@@ -346,7 +306,7 @@ function renderNearestHero(spot) {
                     <div class="space-y-2">
                         <!-- Giant Distance Meter Pill -->
                         <div class="inline-flex flex-wrap items-center gap-2">
-                            <span class="bg-pop-pink text-white font-display font-semibold text-lg sm:text-2xl px-4 py-1.5 rounded-2xl border-[2.5px] border-pop-dark shadow-neo-sm flex items-center gap-2">
+                            <span class="badge-neo bg-pop-pink text-white font-display font-semibold text-lg sm:text-2xl px-4 py-1.5 flex items-center gap-2">
                                 <i class="ph-fill ph-map-pin-area"></i>
                                 <span id="heroDistanceText">${formatDistanceBadge(spot.distanceMeters)}</span>
                             </span>
@@ -360,7 +320,7 @@ function renderNearestHero(spot) {
                             <div class="flex items-center gap-2">
                                 <i class="ph-fill ph-map-pin text-pop-purple text-lg shrink-0"></i>
                                 <div>
-                                    <span class="font-mudium text-pop-dark">${spot.gateInfo}</span>
+                                    <span class="font-semibold text-pop-dark">${spot.gateInfo}</span>
                                 </div>
                             </div>
                         </div>
@@ -374,7 +334,7 @@ function renderNearestHero(spot) {
                             target="_blank" 
                             rel="noopener noreferrer"
                             onclick="trackMapsClick('${spot.name}', true)"
-                            class="btn-neo w-full bg-pop-blue hover:bg-blue-600 text-white font-display font-semibold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
+                            class="btn-neo btn-blue w-full font-display font-semibold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
                         >
                             <i class="ph-bold ph-navigation-arrow text-xl"></i>
                             <span>นำทางด้วย Google Maps</span>
@@ -420,12 +380,16 @@ function handleSearchAndFilter() {
 
     renderLocationsGrid(filtered);
     if (googleMap) renderGoogleMapPins(filtered);
+    setTimeout(adjustFloatingButtonPosition, 60);
 }
 
 function renderLocationsGrid(list) {
     const grid = document.getElementById('locationsGrid');
     const emptyState = document.getElementById('emptyState');
     const countText = document.getElementById('resultCountText');
+    const headerBar = document.getElementById('locationsHeaderBar');
+    const floatingToggle = document.getElementById('floatingToggleWrapper');
+    const mapContainer = document.getElementById('mapViewContainer');
 
     if (countText) {
         countText.textContent = `${list.length} สถานที่`;
@@ -435,11 +399,25 @@ function renderLocationsGrid(list) {
 
     if (list.length === 0) {
         grid.innerHTML = '';
+        if (headerBar) headerBar.classList.add('hidden');
+        if (floatingToggle) floatingToggle.classList.add('hidden');
+        if (mapContainer) mapContainer.classList.add('hidden');
         if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
 
+    // Has results: reveal header, tabs & floating toggle
+    if (headerBar) headerBar.classList.remove('hidden');
+    if (floatingToggle) floatingToggle.classList.remove('hidden');
     if (emptyState) emptyState.classList.add('hidden');
+
+    if (currentView === 'map') {
+        grid.classList.add('hidden');
+        if (mapContainer) mapContainer.classList.remove('hidden');
+    } else {
+        grid.classList.remove('hidden');
+        if (mapContainer) mapContainer.classList.add('hidden');
+    }
 
     // Overall nearest ID to badge with 🔥 ใกล้สุด!
     const overallNearestId = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters)[0]?.id;
@@ -502,7 +480,7 @@ function renderLocationsGrid(list) {
                         target="_blank" 
                         rel="noopener noreferrer"
                         onclick="trackMapsClick('${loc.name}', false)"
-                        class="btn-neo w-full bg-pop-yellow hover:bg-[#ffc63b] text-pop-dark font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
+                        class="btn-neo btn-yellow w-full font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
                     >
                         <i class="ph-bold ph-navigation-arrow text-base"></i>
                         <span>นำทางด้วย Google Maps</span>
@@ -614,17 +592,13 @@ function switchView(viewMode) {
         if (emptyState) emptyState.classList.add('hidden');
         if (mapContainer) mapContainer.classList.remove('hidden');
 
-        // Update Top Switcher Buttons
-        if (listBtn) {
-            listBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-slate-600 hover:text-pop-dark";
-        }
-        if (mapBtn) {
-            mapBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 bg-gradient-to-r from-pop-pink to-pink-400 text-white shadow-sm";
-        }
+        // Update Top Switcher Buttons (Neo-pop themed)
+        if (listBtn) listBtn.className = "tab-btn-inactive";
+        if (mapBtn) mapBtn.className = "tab-btn-active";
 
-        // Update Floating Button
-        if (floatIcon) floatIcon.className = "ph-bold ph-list-dashes text-base";
-        if (floatText) floatText.textContent = "ดูรายการการ์ด";
+        // Update Floating Button Text & Icon
+        if (floatIcon) floatIcon.className = "ph-bold ph-list-dashes text-lg";
+        if (floatText) floatText.textContent = "ดูรายการ";
 
         // Initialize or refresh Google Map
         if (!googleMap) {
@@ -648,22 +622,21 @@ function switchView(viewMode) {
         if (listGrid) listGrid.classList.remove('hidden');
         if (mapContainer) mapContainer.classList.add('hidden');
 
-        // Update Top Switcher Buttons
-        if (listBtn) {
-            listBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 bg-gradient-to-r from-pop-pink to-pink-400 text-white shadow-sm";
-        }
-        if (mapBtn) {
-            mapBtn.className = "px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-slate-600 hover:text-pop-dark";
-        }
+        // Update Top Switcher Buttons (Neo-pop themed)
+        if (listBtn) listBtn.className = "tab-btn-active";
+        if (mapBtn) mapBtn.className = "tab-btn-inactive";
 
-        // Update Floating Button
-        if (floatIcon) floatIcon.className = "ph-bold ph-map-trifold text-base";
-        if (floatText) floatText.textContent = "ดูแผนที่ภาพรวม";
+        // Update Floating Button Text & Icon
+        if (floatIcon) floatIcon.className = "ph-bold ph-map-trifold text-lg";
+        if (floatText) floatText.textContent = "ดูแผนที่";
 
         if (typeof gtag === 'function') {
             gtag('event', 'switch_view', { view_mode: 'list' });
         }
     }
+
+    // Readjust floating button position when view height changes
+    setTimeout(adjustFloatingButtonPosition, 60);
 }
 
 function toggleView() {
@@ -753,23 +726,19 @@ function renderGoogleMapPins(filterList = null) {
             : 'กำลังคำนวณ...';
 
         const infoContent = `
-            <div style="font-family: 'Kanit', sans-serif; padding: 4px; max-width: 215px; color: #5C3D2E;">
-                <div style="height: 100px; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background-color: #f1f5f9;">
-                    <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'" style="width: 100%; height: 100%; object-fit: cover;">
+            <div class="map-popup-card">
+                <div class="map-popup-img">
+                    <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'">
                 </div>
-                <div style="font-weight: 700; font-size: 14px; line-height: 1.3; margin-bottom: 4px; color: #5C3D2E;">${loc.name}</div>
-                <div style="font-size: 12px; font-weight: 600; color: #FF5D8F; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
-                    <span>👣 ${distText}</span>
-                </div>
-                <div style="font-size: 11px; color: #64748b; margin-bottom: 10px; line-height: 1.3;">
-                    <strong style="color: #5C3D2E;">จุดสแกน:</strong> ${loc.gateInfo || '-'}
-                </div>
+                <div class="map-popup-title">${loc.name}</div>
+                <div class="map-popup-dist"><span>👣 ${distText}</span></div>
+                <div class="map-popup-gate"><strong>จุดสแกน:</strong> ${loc.gateInfo || '-'}</div>
                 <a 
                     href="${mapsUrl}" 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     onclick="trackMapsClick('${loc.name}', false)" 
-                    style="display: block; text-align: center; background: linear-gradient(to right, #4CC9F0, #4BA3F5); color: #ffffff; font-weight: 700; padding: 8px 12px; border-radius: 12px; text-decoration: none; font-size: 12px; box-shadow: 0 2px 6px rgba(76,201,240,0.35);"
+                    class="map-popup-btn"
                 >
                     🧭 นำทาง Google Maps
                 </a>
@@ -877,10 +846,46 @@ function fitAllBuildingPins() {
     }
 }
 
+// ==========================================
+// 8. DYNAMIC FLOATING BUTTON DOCKING (AVOID FOOTER)
+// ==========================================
+let isAdjustingFloatingBtn = false;
+function adjustFloatingButtonPosition() {
+    const toggleWrapper = document.getElementById('floatingToggleWrapper');
+    const footer = document.querySelector('footer');
+    if (!toggleWrapper || !footer) return;
+
+    const footerRect = footer.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const defaultBottom = 24; // 24px default margin from bottom
+
+    // When the footer top enters into the viewport
+    if (footerRect.top < windowHeight) {
+        const overlap = windowHeight - footerRect.top;
+        toggleWrapper.style.bottom = `${defaultBottom + overlap}px`;
+    } else {
+        toggleWrapper.style.bottom = `${defaultBottom}px`;
+    }
+}
+
+function handleFloatingButtonScroll() {
+    if (!isAdjustingFloatingBtn) {
+        isAdjustingFloatingBtn = true;
+        requestAnimationFrame(() => {
+            adjustFloatingButtonPosition();
+            isAdjustingFloatingBtn = false;
+        });
+    }
+}
+
+window.addEventListener('scroll', handleFloatingButtonScroll, { passive: true });
+window.addEventListener('resize', handleFloatingButtonScroll, { passive: true });
+
 // Initialize on Window Load
 window.onload = function () {
     startClock();
     recalculateAndRender();
     startLiveTracking();     // Continuous real-time GPS tracking
     startSlideshowTimer();   // Continuous automatic slideshow between image1 & image2
+    adjustFloatingButtonPosition();
 };
