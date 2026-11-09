@@ -19,13 +19,12 @@ let lastKnownHeroId = null;
 let globalSlideIndex = 0; // 0 = image1 (อาคาร), 1 = image2 (จุดแตะบัตร)
 let slideshowTimer = null;
 
-// Map & View State (Google Maps)
+// Map & View State (Leaflet)
 let currentView = 'list'; // 'list' | 'map'
-let googleMap = null;
-let gMarkers = [];
-let userGMarker = null;
-let userGCircle = null;
-let activeInfoWindow = null;
+let leafletMap = null;
+let leafletMarkers = [];
+let userLeafletMarker = null;
+let userLeafletCircle = null;
 
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
@@ -134,7 +133,7 @@ function onPositionSuccess(position) {
     recalculateAndRender();
 
     // Update user marker on interactive map
-    if (googleMap) updateUserGoogleMapPosition();
+    if (leafletMap) updateUserLeafletPosition();
 }
 
 function onPositionError(error) {
@@ -379,7 +378,7 @@ function handleSearchAndFilter() {
     }
 
     renderLocationsGrid(filtered);
-    if (googleMap) renderGoogleMapPins(filtered);
+    if (leafletMap) renderLeafletPins(filtered);
     setTimeout(adjustFloatingButtonPosition, 60);
 }
 
@@ -539,42 +538,8 @@ function startClock() {
 }
 
 // ==========================================
-// 7. INTERACTIVE MAP CONTROLLER (GOOGLE MAPS)
+// 7. INTERACTIVE MAP CONTROLLER (LEAFLET + HUMANITARIAN HOT)
 // ==========================================
-
-// Custom SVG Pin Data URIs for crisp rendering across all screen resolutions
-const NEAREST_PIN_SVG = encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="58" viewBox="0 0 48 58">
-  <defs>
-    <filter id="shadowHot" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#FF5D8F" flood-opacity="0.5"/>
-    </filter>
-  </defs>
-  <path d="M24 2C12.95 2 4 10.95 4 22c0 14.2 18.2 30.5 19 31.2a1.5 1.5 0 0 0 2 0C25.8 52.5 44 36.2 44 22 44 10.95 35.05 2 24 2z" fill="#FF5D8F" stroke="#FFFFFF" stroke-width="2" filter="url(#shadowHot)"/>
-  <circle cx="24" cy="21" r="13" fill="#FFFFFF"/>
-  <text x="24" y="27" font-size="15" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">🔥</text>
-</svg>
-`);
-
-const STANDARD_PIN_SVG = encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
-  <defs>
-    <filter id="shadowStd" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#5C3D2E" flood-opacity="0.25"/>
-    </filter>
-  </defs>
-  <path d="M20 2C10.6 2 3 9.6 3 19c0 12.2 15.5 26.2 16.2 26.8a1.3 1.3 0 0 0 1.6 0C21.5 45.2 37 31.2 37 19 37 9.6 29.4 2 20 2z" fill="#FFB703" stroke="#FFFFFF" stroke-width="2" filter="url(#shadowStd)"/>
-  <circle cx="20" cy="18" r="11" fill="#FFFFFF"/>
-  <text x="20" y="23" font-size="13" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">📍</text>
-</svg>
-`);
-
-const USER_PIN_SVG = encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
-  <circle cx="18" cy="18" r="16" fill="#0EA5E9" fill-opacity="0.25"/>
-  <circle cx="18" cy="18" r="9" fill="#0284C7" stroke="#FFFFFF" stroke-width="2.5"/>
-</svg>
-`);
 
 function switchView(viewMode) {
     currentView = viewMode;
@@ -600,16 +565,14 @@ function switchView(viewMode) {
         if (floatIcon) floatIcon.className = "ph-bold ph-list-dashes text-lg";
         if (floatText) floatText.textContent = "ดูรายการ";
 
-        // Initialize or refresh Google Map
-        if (!googleMap) {
-            if (typeof google !== 'undefined' && google.maps) {
-                initGoogleMap();
-            }
+        // Initialize or refresh Leaflet Map
+        if (!leafletMap) {
+            initLeafletMap();
         } else {
             setTimeout(() => {
-                google.maps.event.trigger(googleMap, 'resize');
+                leafletMap.invalidateSize();
                 if (userLocation.hasRealGPS) {
-                    googleMap.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+                    leafletMap.panTo([userLocation.lat, userLocation.lng]);
                 }
             }, 100);
         }
@@ -643,57 +606,70 @@ function toggleView() {
     switchView(currentView === 'list' ? 'map' : 'list');
 }
 
-function initGoogleMap() {
-    if (googleMap || typeof google === 'undefined' || !google.maps) return;
+function initLeafletMap() {
+    if (leafletMap || typeof L === 'undefined') return;
     const mapElement = document.getElementById('sirirajMap');
     if (!mapElement) return;
 
     // Center on Siriraj Hospital
-    googleMap = new google.maps.Map(mapElement, {
-        center: { lat: 13.7578, lng: 100.4850 },
+    leafletMap = L.map('sirirajMap', {
+        center: [13.7578, 100.4850],
         zoom: 17,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
         zoomControl: true,
-        zoomControlOptions: {
-            position: google.maps.ControlPosition.LEFT_TOP
-        },
-        styles: [
-            {
-                featureType: "poi.business",
-                stylers: [{ visibility: "off" }]
-            },
-            {
-                featureType: "transit",
-                stylers: [{ visibility: "simplified" }]
-            }
-        ]
+        attributionControl: true
     });
 
-    // Close any opened InfoWindow when clicking outside on the map
-    googleMap.addListener('click', () => {
-        if (activeInfoWindow) {
-            activeInfoWindow.close();
-            activeInfoWindow = null;
-        }
-    });
+    // Humanitarian OpenStreetMap Team (HOT) - โทนสีอบอุ่น พาสเทล ไฮไลต์อาคารและโรงพยาบาลชัดเจน
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank" rel="noopener noreferrer">HOT</a>'
+    }).addTo(leafletMap);
 
-    renderGoogleMapPins();
+    renderLeafletPins();
+
     if (userLocation.hasRealGPS) {
-        updateUserGoogleMapPosition();
+        updateUserLeafletPosition();
     }
+
+    // Leaflet needs invalidateSize once container is visible
+    setTimeout(() => {
+        if (leafletMap) leafletMap.invalidateSize();
+    }, 200);
 }
 
-// Make initGoogleMap available globally for the Google Maps script callback
-window.initGoogleMap = initGoogleMap;
+function createPinDivIcon(isNearest) {
+    const iconHtml = isNearest ? `
+        <div class="pin-svg-wrapper" style="width:48px;height:58px;transform:translate(-50%, -100%);filter:drop-shadow(0 4px 6px rgba(0,0,0,0.25));cursor:pointer;">
+            <svg width="48" height="58" viewBox="0 0 48 58">
+                <path d="M24 2C12.95 2 4 10.95 4 22c0 14.2 18.2 30.5 19 31.2a1.5 1.5 0 0 0 2 0C25.8 52.5 44 36.2 44 22 44 10.95 35.05 2 24 2z" fill="#FF5D8F" stroke="#1E1B2E" stroke-width="2.5"/>
+                <circle cx="24" cy="21" r="13" fill="#FFFFFF" stroke="#1E1B2E" stroke-width="1.5"/>
+                <text x="24" y="27" font-size="15" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">🔥</text>
+            </svg>
+        </div>
+    ` : `
+        <div class="pin-svg-wrapper" style="width:40px;height:50px;transform:translate(-50%, -100%);filter:drop-shadow(0 3px 5px rgba(0,0,0,0.2));cursor:pointer;">
+            <svg width="40" height="50" viewBox="0 0 40 50">
+                <path d="M20 2C10.6 2 3 9.6 3 19c0 12.2 15.5 26.2 16.2 26.8a1.3 1.3 0 0 0 1.6 0C21.5 45.2 37 31.2 37 19 37 9.6 29.4 2 20 2z" fill="#FFB703" stroke="#1E1B2E" stroke-width="2.5"/>
+                <circle cx="20" cy="18" r="11" fill="#FFFFFF" stroke="#1E1B2E" stroke-width="1.5"/>
+                <text x="20" y="23" font-size="13" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">📍</text>
+            </svg>
+        </div>
+    `;
 
-function renderGoogleMapPins(filterList = null) {
-    if (!googleMap) return;
+    return L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: iconHtml,
+        iconSize: [0, 0],
+        popupAnchor: [0, isNearest ? -56 : -48]
+    });
+}
+
+function renderLeafletPins(filterList = null) {
+    if (!leafletMap) return;
 
     // Clear existing markers
-    gMarkers.forEach(m => m.setMap(null));
-    gMarkers = [];
+    leafletMarkers.forEach(m => leafletMap.removeLayer(m));
+    leafletMarkers = [];
 
     const targetList = filterList || locationsData;
     const overallNearestId = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters)[0]?.id;
@@ -702,22 +678,11 @@ function renderGoogleMapPins(filterList = null) {
         if (loc.lat == null || loc.lng == null) return;
 
         const isNearest = (loc.id === overallNearestId);
-        const iconSvg = isNearest ? NEAREST_PIN_SVG : STANDARD_PIN_SVG;
-        const iconSize = isNearest ? new google.maps.Size(48, 58) : new google.maps.Size(40, 50);
-        const anchorPt = isNearest ? new google.maps.Point(24, 55) : new google.maps.Point(20, 48);
-
-        const marker = new google.maps.Marker({
-            position: { lat: loc.lat, lng: loc.lng },
-            map: googleMap,
+        const marker = L.marker([loc.lat, loc.lng], {
+            icon: createPinDivIcon(isNearest),
             title: loc.name,
-            zIndex: isNearest ? 100 : 10,
-            icon: {
-                url: `data:image/svg+xml;charset=UTF-8,${iconSvg}`,
-                size: iconSize,
-                scaledSize: iconSize,
-                anchor: anchorPt
-            }
-        });
+            zIndexOffset: isNearest ? 1000 : 100
+        }).addTo(leafletMap);
 
         const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.name);
         const popupImg = loc.image1 || 'assets/images/noimage.jpg';
@@ -731,95 +696,88 @@ function renderGoogleMapPins(filterList = null) {
                     <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'">
                 </div>
                 <div class="map-popup-title">${loc.name}</div>
-                <div class="map-popup-dist"><span>👣 ${distText}</span></div>
+                <div class="map-popup-dist">
+                    <i class="ph-fill ph-footprints text-base"></i>
+                    <span>${distText}</span>
+                </div>
                 <div class="map-popup-gate"><strong>จุดสแกน:</strong> ${loc.gateInfo || '-'}</div>
                 <a 
                     href="${mapsUrl}" 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     onclick="trackMapsClick('${loc.name}', false)" 
-                    class="map-popup-btn"
+                    class="btn-neo btn-blue w-full font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-neo-sm !text-white no-underline"
                 >
-                    🧭 นำทาง Google Maps
+                    <i class="ph-bold ph-navigation-arrow text-base"></i>
+                    <span>นำทาง Google Maps</span>
                 </a>
             </div>
         `;
 
-        const infoWindow = new google.maps.InfoWindow({
-            content: infoContent,
-            maxWidth: 240
+        marker.bindPopup(infoContent, {
+            maxWidth: 240,
+            className: 'neo-leaflet-popup'
         });
 
-        marker.addListener('click', () => {
-            if (activeInfoWindow) activeInfoWindow.close();
-            infoWindow.open(googleMap, marker);
-            activeInfoWindow = infoWindow;
-        });
-
-        gMarkers.push(marker);
+        leafletMarkers.push(marker);
     });
 }
 
-function updateUserGoogleMapPosition() {
-    if (!googleMap || !userLocation.hasRealGPS) return;
+function updateUserLeafletPosition() {
+    if (!leafletMap || !userLocation.hasRealGPS) return;
 
-    const userPos = { lat: userLocation.lat, lng: userLocation.lng };
+    const userLatLng = [userLocation.lat, userLocation.lng];
 
-    if (userGMarker) {
-        userGMarker.setPosition(userPos);
+    if (userLeafletMarker) {
+        userLeafletMarker.setLatLng(userLatLng);
     } else {
-        userGMarker = new google.maps.Marker({
-            position: userPos,
-            map: googleMap,
-            title: "คุณอยู่ที่นี่ (ตำแหน่งสด)",
-            zIndex: 9999,
-            icon: {
-                url: `data:image/svg+xml;charset=UTF-8,${USER_PIN_SVG}`,
-                size: new google.maps.Size(36, 36),
-                scaledSize: new google.maps.Size(36, 36),
-                anchor: new google.maps.Point(18, 18)
-            }
+        const userIcon = L.divIcon({
+            className: 'custom-leaflet-user-marker',
+            html: `
+                <div class="user-gps-pulse-container">
+                    <div class="user-gps-ring"></div>
+                    <div class="user-gps-dot"></div>
+                </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            popupAnchor: [0, -14]
         });
 
-        const userWindow = new google.maps.InfoWindow({
-            content: `
-                <div style="font-family: 'Kanit', sans-serif; font-size: 13px; font-weight: 600; color: #0369a1; padding: 4px;">
-                    📍 คุณอยู่ที่นี่ (ตำแหน่งสด)
-                </div>
-            `
-        });
-        userGMarker.addListener('click', () => {
-            if (activeInfoWindow) activeInfoWindow.close();
-            userWindow.open(googleMap, userGMarker);
-            activeInfoWindow = userWindow;
-        });
+        userLeafletMarker = L.marker(userLatLng, {
+            icon: userIcon,
+            title: "คุณอยู่ที่นี่ (ตำแหน่งสด)",
+            zIndexOffset: 9999
+        }).addTo(leafletMap);
+
+        userLeafletMarker.bindPopup(`
+            <div style="font-family: 'Kanit', sans-serif; font-size: 13px; font-weight: 600; color: #0369a1; padding: 4px;">
+                📍 คุณอยู่ที่นี่ (ตำแหน่งสด)
+            </div>
+        `, { className: 'neo-leaflet-popup' });
     }
 
     if (userLocation.accuracy) {
-        if (userGCircle) {
-            userGCircle.setCenter(userPos);
-            userGCircle.setRadius(userLocation.accuracy);
+        if (userLeafletCircle) {
+            userLeafletCircle.setLatLng(userLatLng);
+            userLeafletCircle.setRadius(userLocation.accuracy);
         } else {
-            userGCircle = new google.maps.Circle({
-                map: googleMap,
-                center: userPos,
+            userLeafletCircle = L.circle(userLatLng, {
                 radius: userLocation.accuracy,
-                strokeColor: '#0284C7',
-                strokeOpacity: 0.5,
-                strokeWeight: 1.5,
+                color: '#0284C7',
+                weight: 1.5,
+                opacity: 0.5,
                 fillColor: '#38BDF8',
-                fillOpacity: 0.15,
-                zIndex: 1
-            });
+                fillOpacity: 0.15
+            }).addTo(leafletMap);
         }
     }
 }
 
 function recenterMapToUser() {
-    if (!googleMap) return;
+    if (!leafletMap) return;
     if (userLocation.hasRealGPS) {
-        googleMap.panTo({ lat: userLocation.lat, lng: userLocation.lng });
-        googleMap.setZoom(18);
+        leafletMap.setView([userLocation.lat, userLocation.lng], 18, { animate: true });
         showToast("📍 เล็งพิกัดตำแหน่งคุณแล้ว", `พิกัดสด (±${userLocation.accuracy || 0} ม.)`);
     } else {
         startLiveTracking();
@@ -828,25 +786,18 @@ function recenterMapToUser() {
 }
 
 function fitAllBuildingPins() {
-    if (!googleMap || gMarkers.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    let hasPoint = false;
-    gMarkers.forEach(m => {
-        if (m.getMap()) {
-            bounds.extend(m.getPosition());
-            hasPoint = true;
-        }
-    });
+    if (!leafletMap || leafletMarkers.length === 0) return;
+    const group = L.featureGroup(leafletMarkers);
+
     // Include user pin only if user is within Siriraj area (< 2 km) to avoid zooming out to whole city
-    if (userLocation.hasRealGPS) {
+    if (userLocation.hasRealGPS && userLeafletMarker) {
         const distFromSiriraj = calculateDistanceInMeters(userLocation.lat, userLocation.lng, 13.7578, 100.4850);
         if (distFromSiriraj <= 2000) {
-            bounds.extend(new google.maps.LatLng(userLocation.lat, userLocation.lng));
+            group.addLayer(userLeafletMarker);
         }
     }
-    if (hasPoint) {
-        googleMap.fitBounds(bounds);
-    }
+
+    leafletMap.fitBounds(group.getBounds().pad(0.12), { animate: true });
 }
 
 // ==========================================
