@@ -63,6 +63,16 @@ function getGoogleMapsUrl(destLat, destLng, placeName) {
     return `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destLat},${destLng}&travelmode=walking`;
 }
 
+// Analytics Event Tracking Helper
+function trackMapsClick(buildingName, isHero = false) {
+    if (typeof gtag === 'function') {
+        gtag('event', 'click_navigation', {
+            building_name: buildingName,
+            card_type: isHero ? 'hero_nearest' : 'grid_list'
+        });
+    }
+}
+
 // ==========================================
 // 3. CONTINUOUS REAL-TIME GPS TRACKING
 // ==========================================
@@ -115,6 +125,9 @@ function onPositionSuccess(position) {
 
     if (isFirstFix) {
         showToast("🛰️ จับสัญญาณ GPS สดสำเร็จ!", "ระบบกำลังคำนวณและเรียงตึกตามระยะจริง");
+        if (typeof gtag === 'function') {
+            gtag('event', 'gps_connected', { accuracy_meters: accuracy });
+        }
     }
 
     // Recalculate distances and re-order in real time!
@@ -349,6 +362,7 @@ function renderNearestHero(spot) {
                             href="${mapsUrl}" 
                             target="_blank" 
                             rel="noopener noreferrer"
+                            onclick="trackMapsClick('${spot.name}', true)"
                             class="btn-neo w-full bg-pop-blue hover:bg-blue-600 text-white font-display font-semibold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
                         >
                             <i class="ph-bold ph-navigation-arrow text-xl"></i>
@@ -475,6 +489,7 @@ function renderLocationsGrid(list) {
                         href="${mapsUrl}" 
                         target="_blank" 
                         rel="noopener noreferrer"
+                        onclick="trackMapsClick('${loc.name}', false)"
                         class="btn-neo w-full bg-pop-yellow hover:bg-[#ffc63b] text-pop-dark font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
                     >
                         <i class="ph-bold ph-navigation-arrow text-base"></i>
