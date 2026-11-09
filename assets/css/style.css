@@ -107,3 +107,19 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #FF5D8F;
 }
+
+/* Custom Google Maps InfoWindow & Control Styling */
+.gm-style .gm-style-iw-c {
+    border-radius: 1.25rem !important;
+    padding: 10px !important;
+    box-shadow: 0 12px 28px -4px rgba(255, 93, 143, 0.25) !important;
+    border: 1.5px solid rgba(255, 182, 193, 0.7) !important;
+    font-family: 'Kanit', sans-serif !important;
+}
+.gm-style .gm-style-iw-d {
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+.gm-style .gm-style-iw-tc::after {
+    background: #FFFFFF !important;
+}
