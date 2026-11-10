@@ -190,7 +190,6 @@ function getSlideHTML(loc, isHero = false) {
     const hasBoth = Boolean(img1 && img2);
     const key = isHero ? 'hero' : loc.id;
     const fallback = 'assets/images/noimage.jpg';
-    const loadMode = isHero ? 'eager' : 'lazy';
 
     if (!hasBoth) {
         return `
@@ -198,8 +197,6 @@ function getSlideHTML(loc, isHero = false) {
                 src="${img1 || img2 || fallback}" 
                 alt="${loc.name}" 
                 onerror="this.src='${fallback}'"
-                loading="${loadMode}"
-                decoding="async"
                 class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             >
         `;
@@ -215,8 +212,6 @@ function getSlideHTML(loc, isHero = false) {
                 src="${img1}" 
                 alt="${loc.name} - รูปอาคาร" 
                 onerror="this.src='${fallback}'"
-                loading="${loadMode}"
-                decoding="async"
                 class="slide-img-1 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-100' : 'opacity-0'}"
             >
 
@@ -226,8 +221,6 @@ function getSlideHTML(loc, isHero = false) {
                 src="${img2}" 
                 alt="${loc.name} - รูปจุดแตะบัตรจริง" 
                 onerror="this.src='${fallback}'"
-                loading="${loadMode}"
-                decoding="async"
                 class="slide-img-2 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-0' : 'opacity-100'}"
             >
         </div>
