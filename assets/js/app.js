@@ -12,7 +12,7 @@ let userLocation = {
     lng: 100.486346,
     accuracy: null,
     hasRealGPS: false,
-    label: "กำลังจับพิกัดสด..."
+    label: "กำลังจับพิกัด..."
 };
 let watchId = null;
 let lastKnownHeroId = null;
@@ -123,7 +123,7 @@ function onPositionSuccess(position) {
     hideGPSAlertBanner();
 
     if (isFirstFix) {
-        showToast("🛰️ จับสัญญาณ GPS สดสำเร็จ!", "ระบบกำลังคำนวณและเรียงตึกตามระยะจริง");
+        showToast("🛰️ จับสัญญาณ GPS สำเร็จ!", "ระบบกำลังคำนวณและเรียงสถานที่ตามระยะจริง");
         if (typeof gtag === 'function') {
             gtag('event', 'gps_connected', { accuracy_meters: accuracy });
         }
@@ -144,7 +144,7 @@ function onPositionError(error) {
     if (!userLocation.hasRealGPS && error.code === error.PERMISSION_DENIED) {
         showGPSAlertBanner(
             'กรุณาเปิดสิทธิ์เข้าถึงตำแหน่ง (GPS)',
-            'เพื่อให้ระบบคำนวณและเรียงลำดับตึกที่ใกล้ที่สุดแบบเรียลไทม์ขณะที่คุณเดิน'
+            'เพื่อให้ระบบคำนวณและเรียงลำดับสถานที่ที่ใกล้ที่สุดแบบเรียลไทม์ขณะที่คุณเดิน'
         );
     }
 }
@@ -570,7 +570,7 @@ function getLocalClusterLocations() {
         return [nearest];
     }
 
-    // Default & Main Cluster: เฉพาะตึกภายในโรงพยาบาลศิริราช (IDs 1-24)
+    // Default & Main Cluster: เฉพาะสถานที่ภายในโรงพยาบาลศิริราช (IDs 1-24)
     const sirirajHospitalList = locationsData.filter(loc => isInsideSirirajHospital(loc));
     return sirirajHospitalList.length > 0 ? sirirajHospitalList : locationsData;
 }
@@ -827,13 +827,13 @@ function updateUserLeafletPosition() {
 
         userLeafletMarker = L.marker(userLatLng, {
             icon: userIcon,
-            title: "คุณอยู่ที่นี่ (ตำแหน่งสด)",
+            title: "คุณอยู่ที่นี่",
             zIndexOffset: 9999
         }).addTo(leafletMap);
 
         userLeafletMarker.bindPopup(`
             <div style="font-family: 'Kanit', sans-serif; font-size: 13px; font-weight: 600; color: #0369a1; padding: 4px;">
-                📍 คุณอยู่ที่นี่ (ตำแหน่งสด)
+                📍 คุณอยู่ที่นี่
             </div>
         `, { className: 'neo-leaflet-popup' });
     }
@@ -860,7 +860,7 @@ function recenterMapToUser() {
     isFullProvinceOverview = false;
     if (userLocation.hasRealGPS) {
         leafletMap.setView([userLocation.lat, userLocation.lng], 18, { animate: true });
-        showToast("📍 เล็งพิกัดตำแหน่งคุณแล้ว", `พิกัดสด (±${userLocation.accuracy || 0} ม.)`);
+        showToast("📍 เล็งพิกัดตำแหน่งคุณแล้ว", `พิกัด (±${userLocation.accuracy || 0} ม.)`);
     } else {
         startLiveTracking();
         showToast("📡 กำลังค้นหาตำแหน่ง...", "กรุณารอรับสัญญาณ GPS สักครู่");
