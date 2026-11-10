@@ -24,6 +24,7 @@ let leafletMap = null;
 let leafletMarkers = [];
 let userLeafletMarker = null;
 let userLeafletCircle = null;
+let activePopupLocId = null;
 
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
@@ -138,7 +139,7 @@ function onPositionSuccess(position) {
         if (typeof gtag === 'function') {
             gtag('event', 'gps_connected', { accuracy_meters: accuracy });
         }
-        if (currentView === 'map' && leafletMap) {
+        if (currentView === 'map' && leafletMap && !activePopupLocId) {
             focusMapOnProximity();
         }
     }
@@ -296,8 +297,8 @@ function recalculateAndRender() {
     // 3. Render Hero card (closest building)
     renderNearestHero(nearestSpot);
 
-    // 4. Filter & re-sort grid cards
-    handleSearchAndFilter();
+    // 4. Filter & re-sort grid cards (ข้ามการลบสร้างหมุด Leaflet ใหม่ เพื่อป้องกันป๊อปอัปหลุดหายขณะรับพิกัด GPS)
+    handleSearchAndFilter(false);
 }
 
 function renderNearestHero(spot) {
@@ -389,7 +390,7 @@ function renderNearestHero(spot) {
     `;
 }
 
-function handleSearchAndFilter() {
+function handleSearchAndFilter(updateMapPins = true) {
     const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
     const sortMode = document.getElementById('sortSelect')?.value || 'distance-asc';
     const clearBtn = document.getElementById('clearSearchBtn');
@@ -422,7 +423,7 @@ function handleSearchAndFilter() {
     }
 
     renderLocationsGrid(filtered);
-    if (leafletMap) renderLeafletPins(filtered);
+    if (leafletMap && updateMapPins) renderLeafletPins(filtered);
     setTimeout(adjustFloatingButtonPosition, 60);
 }
 
@@ -766,9 +767,11 @@ function focusBuildingOnMap(buildingId) {
             }
         };
 
-        // เมื่อหมุดเคลื่อนที่ถึงตำแหน่ง ให้เปิดการ์ดข้อมูล Apple Maps popup ทันที
+        // เมื่อหมุดเคลื่อนที่ถึงตำแหน่ง ให้เปิดการ์ดข้อมูล popup ทันที
         leafletMap.once('moveend', openTargetPopup);
-        leafletMap.flyTo([targetLoc.lat, targetLoc.lng], 18, { animate: true, duration: 0.8 });
+        // เล็งเป้าหมายค่อนไปทางเหนือเล็กน้อย (+0.00035 deg latitude) เพื่อให้ตัวหมุดอยู่ด้านล่างและการ์ดป๊อปอัปแสดงตรงกลางจอพอดี ไม่ล้นขอบจอบนของมือถือ
+        const targetLat = targetLoc.lat + 0.00035;
+        leafletMap.flyTo([targetLat, targetLoc.lng], 18, { animate: true, duration: 0.8 });
         setTimeout(openTargetPopup, 900); // เผื่อกรณีที่พิกัดใกล้มากจน moveend ไม่ทริกเกอร์
         updateOverviewButtonUI(false);
     }, delay);
@@ -790,7 +793,8 @@ function initLeafletMap() {
         center: initialCenter,
         zoom: 17,
         zoomControl: true,
-        attributionControl: true
+        attributionControl: true,
+        closePopupOnClick: false // ป้องกันการแตะโดนหน้าจอแผนที่แล้วป๊อปอัปหลุดหายบนมือถือ
     });
 
     // ป้องกันการส่งต่อ Touch/Click จากปุ่มควบคุมลอยและ Legend เข้าสู่ Canvas ของแผนที่
@@ -858,6 +862,8 @@ function createPinDivIcon(isNearest) {
 function renderLeafletPins(filterList = null) {
     if (!leafletMap) return;
 
+    const preservedPopupId = activePopupLocId;
+
     // Clear existing markers
     leafletMarkers.forEach(m => leafletMap.removeLayer(m));
     leafletMarkers = [];
@@ -909,11 +915,30 @@ function renderLeafletPins(filterList = null) {
 
         marker.bindPopup(infoContent, {
             maxWidth: 240,
-            className: 'neo-leaflet-popup'
+            className: 'neo-leaflet-popup',
+            closeOnClick: false,
+            autoPanPadding: [20, 50]
+        });
+
+        marker.on('popupopen', () => {
+            activePopupLocId = loc.id;
+        });
+        marker.on('popupclose', () => {
+            if (activePopupLocId === loc.id) {
+                activePopupLocId = null;
+            }
         });
 
         marker._locationData = loc;
         leafletMarkers.push(marker);
+
+        if (preservedPopupId && loc.id === preservedPopupId) {
+            setTimeout(() => {
+                if (marker && leafletMap && leafletMap.hasLayer(marker)) {
+                    marker.openPopup();
+                }
+            }, 60);
+        }
     });
 
     // If user filtered by search to 1 or 2 specific buildings, smoothly fly to them
