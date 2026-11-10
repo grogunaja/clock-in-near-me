@@ -205,6 +205,16 @@ body {
 }
 
 /* ==========================================
+   SLIDESHOW SMOOTH CROSSFADE & GPU ACCELERATION
+   ========================================== */
+.slideshow-box img {
+    will-change: opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+/* ==========================================
    3. CUSTOM SCROLLBAR
    ========================================== */
 ::-webkit-scrollbar {
