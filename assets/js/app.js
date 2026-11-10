@@ -11,8 +11,7 @@ let userLocation = {
     lat: 13.757155,
     lng: 100.486346,
     accuracy: null,
-    hasRealGPS: false,
-    label: "กำลังจับพิกัด..."
+    hasRealGPS: false
 };
 let watchId = null;
 let lastKnownHeroId = null;
@@ -78,7 +77,7 @@ function getWalkingTimeText(meters) {
     }
 }
 
-function getGoogleMapsUrl(destLat, destLng, placeName) {
+function getGoogleMapsUrl(destLat, destLng) {
     return `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destLat},${destLng}&travelmode=walking`;
 }
 
@@ -135,7 +134,7 @@ function onPositionSuccess(position) {
     hideGPSAlertBanner();
 
     if (isFirstFix) {
-        showToast("🛰️ จับสัญญาณ GPS สำเร็จ!", "ระบบกำลังคำนวณและเรียงสถานที่ตามระยะจริง");
+        showToast("🛰️ จับสัญญาณ GPS สำเร็จ!", "ระบบกำลังคำนวณและเรียงจุดแตะบัตรตามระยะจริง");
         if (typeof gtag === 'function') {
             gtag('event', 'gps_connected', { accuracy_meters: accuracy });
         }
@@ -156,7 +155,7 @@ function onPositionError(error) {
     if (!userLocation.hasRealGPS && error.code === error.PERMISSION_DENIED) {
         showGPSAlertBanner(
             'กรุณาเปิดสิทธิ์เข้าถึงตำแหน่ง (GPS)',
-            'เพื่อให้ระบบคำนวณและเรียงลำดับสถานที่ที่ใกล้ที่สุดแบบเรียลไทม์ขณะที่คุณเดิน'
+            'เพื่อให้ระบบคำนวณและเรียงลำดับจุดแตะบัตรที่ใกล้ที่สุดแบบเรียลไทม์ขณะที่คุณเดิน'
         );
     }
 }
@@ -307,7 +306,7 @@ function renderNearestHero(spot) {
     const walkingEl = document.getElementById('walkingEstimate');
     if (walkingEl) walkingEl.textContent = getWalkingTimeText(spot.distanceMeters);
 
-    const mapsUrl = getGoogleMapsUrl(spot.lat, spot.lng, spot.name);
+    const mapsUrl = getGoogleMapsUrl(spot.lat, spot.lng);
     const container = document.getElementById('nearestCardContainer');
 
     // If the same building is still nearest, update distance elements directly to prevent image re-render
@@ -379,7 +378,6 @@ function renderNearestHero(spot) {
                             id="heroMapBtn"
                             onclick="focusBuildingOnMap(${spot.id})"
                             class="btn-neo btn-white font-display font-semibold py-3 sm:py-3.5 px-3.5 sm:px-5 rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-neo cursor-pointer shrink-0 text-pop-dark hover:text-pop-pink"
-                            title="ดูตำแหน่งบนแผนที่"
                         >
                             <i class="ph-bold ph-map-trifold text-base sm:text-xl text-pop-pink"></i>
                             <span>ดูบนแผนที่</span>
@@ -425,7 +423,6 @@ function handleSearchAndFilter() {
 
     renderLocationsGrid(filtered);
     if (leafletMap) renderLeafletPins(filtered);
-    isFullProvinceOverview = false;
     setTimeout(adjustFloatingButtonPosition, 60);
 }
 
@@ -438,7 +435,7 @@ function renderLocationsGrid(list) {
     const mapContainer = document.getElementById('mapViewContainer');
 
     if (countText) {
-        countText.textContent = `${list.length} สถานที่`;
+        countText.textContent = `${list.length} จุด`;
     }
 
     if (!grid) return;
@@ -466,11 +463,11 @@ function renderLocationsGrid(list) {
     }
 
     // Overall nearest ID to badge with 🔥 ใกล้สุด!
-    const overallNearestId = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters)[0]?.id;
+    const overallNearestId = getNearestLocation()?.id;
 
     grid.innerHTML = list.map((loc, index) => {
         const isNearest = loc.id === overallNearestId;
-        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.name);
+        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng);
 
         return `
             <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300" data-id="${loc.id}">
@@ -498,7 +495,7 @@ function renderLocationsGrid(list) {
                         <div class="flex items-center justify-between bg-pop-bg px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm">
                             <div class="flex items-center gap-1.5 text-pop-dark font-display font-semibold text-xs sm:text-sm">
                                 <i class="ph-fill ph-footprints text-pop-pink text-base"></i>
-                                <span class="dist-val">${loc.distanceMeters < 1000 ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร` : `${(loc.distanceMeters / 1000).toFixed(1)} กม.`}</span>
+                                <span>${loc.distanceMeters < 1000 ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร` : `${(loc.distanceMeters / 1000).toFixed(1)} กม.`}</span>
                             </div>
                             <span class="text-[11px] font-semibold text-slate-500">
                                 ${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : `${loc.distanceMeters.toLocaleString('th-TH')} ม.`}
@@ -534,7 +531,6 @@ function renderLocationsGrid(list) {
                     <button 
                         type="button"
                         onclick="focusBuildingOnMap(${loc.id})"
-                        title="ดูตำแหน่งบนแผนที่"
                         aria-label="ดู ${loc.name} บนแผนที่"
                         class="btn-neo btn-white w-10 h-10 shrink-0 rounded-xl flex items-center justify-center shadow-neo-sm text-pop-dark hover:text-pop-pink cursor-pointer"
                     >
@@ -585,6 +581,7 @@ function showToast(title, message, emoji = '📡') {
 }
 
 // Live Clock in Top Bar
+let clockInterval = null;
 function startClock() {
     const clockEl = document.getElementById('liveClock');
     if (!clockEl) return;
@@ -593,7 +590,8 @@ function startClock() {
         clockEl.textContent = "🕒 " + now.toLocaleTimeString('th-TH', { hour12: false });
     };
     update();
-    setInterval(update, 1000);
+    if (clockInterval) clearInterval(clockInterval);
+    clockInterval = setInterval(update, 1000);
 }
 
 // Start clock immediately so users never see placeholder time
@@ -609,7 +607,6 @@ if (document.readyState === 'loading') {
 
 const SIRIRAJ_MAIN_LAT = 13.7578;
 const SIRIRAJ_MAIN_LNG = 100.4850;
-let isFullProvinceOverview = false;
 
 // Smart Proximity Helpers
 function isInsideSirirajHospital(loc) {
@@ -632,7 +629,7 @@ function getLocalClusterLocations() {
         return [nearest];
     }
 
-    // Default & Main Cluster: เฉพาะสถานที่ภายในโรงพยาบาลศิริราช (IDs 1-24)
+    // Default & Main Cluster: เฉพาะจุดแตะบัตรภายในโรงพยาบาลศิริราช (IDs 1-24)
     const sirirajHospitalList = locationsData.filter(loc => isInsideSirirajHospital(loc));
     return sirirajHospitalList.length > 0 ? sirirajHospitalList : locationsData;
 }
@@ -675,7 +672,6 @@ function switchView(viewMode, skipProximity = false) {
         if (floatText) floatText.textContent = "ดูรายการ";
 
         // Initialize or refresh Leaflet Map with smart proximity focus
-        isFullProvinceOverview = false;
         if (!leafletMap) {
             initLeafletMap();
         } else {
@@ -683,6 +679,7 @@ function switchView(viewMode, skipProximity = false) {
                 leafletMap.invalidateSize();
                 if (!skipProximity) {
                     focusMapOnProximity();
+                    updateOverviewButtonUI(false);
                 }
             }, 100);
         }
@@ -773,6 +770,7 @@ function focusBuildingOnMap(buildingId) {
         leafletMap.once('moveend', openTargetPopup);
         leafletMap.flyTo([targetLoc.lat, targetLoc.lng], 18, { animate: true, duration: 0.8 });
         setTimeout(openTargetPopup, 900); // เผื่อกรณีที่พิกัดใกล้มากจน moveend ไม่ทริกเกอร์
+        updateOverviewButtonUI(false);
     }, delay);
 }
 
@@ -795,9 +793,21 @@ function initLeafletMap() {
         attributionControl: true
     });
 
-    // Reset province overview toggle only when user manually drags the map
-    leafletMap.on('dragstart', () => {
-        isFullProvinceOverview = false;
+    // ป้องกันการส่งต่อ Touch/Click จากปุ่มควบคุมลอยและ Legend เข้าสู่ Canvas ของแผนที่
+    const quickControls = document.getElementById('mapQuickControls');
+    if (quickControls) {
+        L.DomEvent.disableClickPropagation(quickControls);
+        L.DomEvent.disableScrollPropagation(quickControls);
+    }
+    const legendBanner = document.querySelector('.map-legend-banner');
+    if (legendBanner) {
+        L.DomEvent.disableClickPropagation(legendBanner);
+        L.DomEvent.disableScrollPropagation(legendBanner);
+    }
+
+    // อัปเดตไอคอนและข้อความบนปุ่มภาพรวมให้ตรงกับระดับ Zoom จริงของแผนที่แบบอัตโนมัติ
+    leafletMap.on('zoomend', () => {
+        updateOverviewButtonUI(leafletMap.getZoom() <= 13);
     });
 
     // Humanitarian OpenStreetMap Team (HOT) - โทนสีอบอุ่น พาสเทล ไฮไลต์อาคารและโรงพยาบาลชัดเจน
@@ -853,7 +863,7 @@ function renderLeafletPins(filterList = null) {
     leafletMarkers = [];
 
     const targetList = filterList || locationsData;
-    const overallNearestId = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters)[0]?.id;
+    const overallNearestId = getNearestLocation()?.id;
 
     targetList.forEach(loc => {
         if (loc.lat == null || loc.lng == null) return;
@@ -865,7 +875,7 @@ function renderLeafletPins(filterList = null) {
             zIndexOffset: isNearest ? 1000 : 100
         }).addTo(leafletMap);
 
-        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.name);
+        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng);
         const popupImg = loc.image1 || 'assets/images/noimage.jpg';
         const distText = (loc.distanceMeters !== undefined) 
             ? (loc.distanceMeters < 1000 
@@ -921,9 +931,17 @@ function updateUserLeafletPosition() {
     if (!leafletMap || !userLocation.hasRealGPS) return;
 
     const userLatLng = [userLocation.lat, userLocation.lng];
+    const accuracy = userLocation.accuracy;
+
+    const popupContent = `
+        <div style="font-family: 'Kanit', sans-serif; font-size: 13px; font-weight: 600; color: #0369a1; padding: 2px;">
+            📍 คุณอยู่ที่นี่ ${accuracy ? `<span style="font-size: 11px; font-weight: 400; color: #64748b;">(±${accuracy} ม.)</span>` : ''}
+        </div>
+    `;
 
     if (userLeafletMarker) {
         userLeafletMarker.setLatLng(userLatLng);
+        userLeafletMarker.setPopupContent(popupContent);
     } else {
         const userIcon = L.divIcon({
             className: 'custom-leaflet-user-marker',
@@ -944,20 +962,20 @@ function updateUserLeafletPosition() {
             zIndexOffset: 9999
         }).addTo(leafletMap);
 
-        userLeafletMarker.bindPopup(`
-            <div style="font-family: 'Kanit', sans-serif; font-size: 13px; font-weight: 600; color: #0369a1; padding: 4px;">
-                📍 คุณอยู่ที่นี่
-            </div>
-        `, { className: 'neo-leaflet-popup' });
+        userLeafletMarker.bindPopup(popupContent, { className: 'neo-leaflet-popup' });
     }
 
-    if (userLocation.accuracy) {
+    // Map Accuracy Circle Guard:
+    // - แสดงวงกลมความแม่นยำเฉพาะเมื่อ accuracy <= 300 เมตร
+    // - หาก accuracy > 300 เมตร (เช่น กรณีต่อเน็ตบ้าน, IP Wifi หรือจับสัญญาณในตึกอับสัญญาณ) ให้ซ่อนวงกลมเพื่อไม่ให้บดบังหมุดตึกทั้งหมด
+    const MAX_ACCURACY_RADIUS = 300;
+    if (accuracy && accuracy <= MAX_ACCURACY_RADIUS) {
         if (userLeafletCircle) {
             userLeafletCircle.setLatLng(userLatLng);
-            userLeafletCircle.setRadius(userLocation.accuracy);
+            userLeafletCircle.setRadius(accuracy);
         } else {
             userLeafletCircle = L.circle(userLatLng, {
-                radius: userLocation.accuracy,
+                radius: accuracy,
                 color: '#0284C7',
                 weight: 1.5,
                 opacity: 0.5,
@@ -965,12 +983,34 @@ function updateUserLeafletPosition() {
                 fillOpacity: 0.15
             }).addTo(leafletMap);
         }
+    } else if (userLeafletCircle) {
+        leafletMap.removeLayer(userLeafletCircle);
+        userLeafletCircle = null;
+    }
+}
+
+let isTogglingOverview = false;
+
+function updateOverviewButtonUI(isWideOverview) {
+    const icon = document.getElementById('overviewMapIcon');
+    const text = document.getElementById('overviewMapText');
+    const btn = document.getElementById('overviewMapBtn');
+    if (!btn) return;
+
+    if (isWideOverview) {
+        if (icon) icon.className = "ph-bold ph-hospital text-base text-pop-pink";
+        if (text) text.textContent = "รพ.ศิริราช";
+        btn.title = "ดูเฉพาะภายในโรงพยาบาลศิริราช";
+    } else {
+        if (icon) icon.className = "ph-bold ph-buildings text-base text-pop-blue";
+        if (text) text.textContent = "ทั้งหมด";
+        btn.title = "ดูจุดแตะบัตรทั้งหมด";
     }
 }
 
 function recenterMapToUser() {
     if (!leafletMap) return;
-    isFullProvinceOverview = false;
+    updateOverviewButtonUI(false);
     if (userLocation.hasRealGPS) {
         leafletMap.setView([userLocation.lat, userLocation.lng], 18, { animate: true });
         showToast("📍 เล็งพิกัดตำแหน่งคุณแล้ว", `พิกัด (±${userLocation.accuracy || 0} ม.)`);
@@ -982,18 +1022,18 @@ function recenterMapToUser() {
 
 function fitAllBuildingPins() {
     if (!leafletMap || leafletMarkers.length === 0) return;
+    if (isTogglingOverview) return;
+    isTogglingOverview = true;
+    setTimeout(() => { isTogglingOverview = false; }, 600);
 
-    if (isFullProvinceOverview) {
-        // 2nd click: Show all buildings across every campus (รวมกายอุปกรณ์, ปฐมภูมิ, สาย 3, ICS, สมุทรสาคร)
-        const group = L.featureGroup(leafletMarkers);
-        if (userLocation.hasRealGPS && userLeafletMarker) {
-            group.addLayer(userLeafletMarker);
-        }
-        leafletMap.fitBounds(group.getBounds().pad(0.1), { animate: true });
-        showToast("🌐 จุดแตะบัตรทั้งหมด", "กดซ้ำเพื่อดูจุดแตะบัตรภายในโรงพยาบาลศิริราช");
-        isFullProvinceOverview = false;
-    } else {
-        // 1st click (Default): Smart Local Campus Overview
+    // ตรวจสอบจากระดับ Zoom ปัจจุบันของแผนที่:
+    // - ถ้า Zoom <= 13 (แสดงว่าอยู่ในมุมมองกว้างครอบคลุมหลายวิทยาเขต) -> สลับไปซูมเข้า "เฉพาะภายใน รพ.ศิริราช"
+    // - ถ้า Zoom > 13 (แสดงว่าอยู่ในมุมมองใกล้ รพ.ศิริราช หรือกำลังดูเฉพาะตึก) -> สลับไป "ภาพรวมทุกวิทยาเขต"
+    const currentZoom = leafletMap.getZoom();
+    const shouldZoomToSiriraj = (currentZoom <= 13);
+
+    if (shouldZoomToSiriraj) {
+        // 1. ซูมเข้าเฉพาะอาคารภายในโรงพยาบาลศิริราช (24 อาคาร)
         const localLocs = getLocalClusterLocations();
         const localIds = new Set(localLocs.map(l => l.id));
         const localMarkers = leafletMarkers.filter(m => m._locationData && localIds.has(m._locationData.id));
@@ -1012,10 +1052,20 @@ function fitAllBuildingPins() {
 
         const isMainHosp = localLocs.every(l => isInsideSirirajHospital(l));
         const clusterName = isMainHosp 
-            ? "ภายในโรงพยาบาลศิริราช" 
+            ? "จุดแตะบัตรภายในโรงพยาบาลศิริราช" 
             : (localLocs[0]?.name || "พื้นที่ใกล้คุณ");
-        showToast(`📍 ${clusterName}`, `กดซ้ำเพื่อดูจุดแตะบัตรทั้งหมด`);
-        isFullProvinceOverview = true;
+        showToast(`📍 ${clusterName}`, "กดอีกครั้งเพื่อดูจุดแตะบัตรทั้งหมด", "🏥");
+        updateOverviewButtonUI(false);
+    } else {
+        // 2. ขยายมุมมองภาพรวมทุกวิทยาเขต (ทุกจุดแตะบัตร รวมศาลายา, สมุทรสาคร, ICS, ปฐมภูมิ, กายอุปกรณ์)
+        const group = L.featureGroup(leafletMarkers);
+        if (userLocation.hasRealGPS && userLeafletMarker) {
+            group.addLayer(userLeafletMarker);
+        }
+
+        leafletMap.fitBounds(group.getBounds().pad(0.1), { animate: true });
+        showToast("📍 จุดแตะบัตรทั้งหมด", "กดอีกครั้งเพื่อดูจุดแตะบัตรภายในโรงพยาบาลศิริราช", "🗺️");
+        updateOverviewButtonUI(true);
     }
 }
 
@@ -1056,7 +1106,6 @@ window.addEventListener('resize', handleFloatingButtonScroll, { passive: true })
 
 // Initialize on Window Load
 window.onload = function () {
-    startClock();
     recalculateAndRender();
     startLiveTracking();     // Continuous real-time GPS tracking
     startSlideshowTimer();   // Continuous automatic slideshow between image1 & image2

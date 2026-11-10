@@ -18,13 +18,13 @@
 
     <!-- SEO & Social Meta Tags (สำหรับแสดงผลเวลาแชร์ลิงก์ใน LINE, Facebook, ฯลฯ) -->
     <meta name="title" content="แตะบัตรใกล้ฉัน | คณะแพทยศาสตร์ศิริราชพยาบาล">
-    <meta name="description" content="ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรคณะแพทยศาสตร์ศิริราชพยาบาล คำนวณระยะทางและเรียงลำดับสถานที่ที่ใกล้ที่สุดแบบเรียลไทม์">
+    <meta name="description" content="ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรคณะแพทยศาสตร์ศิริราชพยาบาล คำนวณระยะทางและเรียงลำดับจุดแตะบัตรที่ใกล้ที่สุดแบบเรียลไทม์">
 
     <!-- Open Graph / Facebook / LINE -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://grogunaja.github.io/clock-in-near-me/">
     <meta property="og:title" content="แตะบัตรใกล้ฉัน | คณะแพทยศาสตร์ศิริราชพยาบาล">
-    <meta property="og:description" content="ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรคณะแพทยศาสตร์ศิริราชพยาบาล คำนวณระยะทางและเรียงลำดับสถานที่ที่ใกล้ที่สุดแบบเรียลไทม์">
+    <meta property="og:description" content="ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรคณะแพทยศาสตร์ศิริราชพยาบาล คำนวณระยะทางและเรียงลำดับจุดแตะบัตรที่ใกล้ที่สุดแบบเรียลไทม์">
     <meta property="og:image" content="https://grogunaja.github.io/clock-in-near-me/assets/images/logo_3.jpg">
     <meta property="og:image:width" content="397">
     <meta property="og:image:height" content="345">
@@ -33,7 +33,7 @@
     <meta property="twitter:card" content="summary">
     <meta property="twitter:url" content="https://grogunaja.github.io/clock-in-near-me/">
     <meta property="twitter:title" content="แตะบัตรใกล้ฉัน | คณะแพทยศาสตร์ศิริราชพยาบาล">
-    <meta property="twitter:description" content="ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรคณะแพทยศาสตร์ศิริราชพยาบาล คำนวณระยะทางและเรียงลำดับสถานที่ที่ใกล้ที่สุดแบบเรียลไทม์">
+    <meta property="twitter:description" content="ค้นหาพิกัดจุดติดตั้งเครื่องแตะบัตรบุคลากรคณะแพทยศาสตร์ศิริราชพยาบาล คำนวณระยะทางและเรียงลำดับจุดแตะบัตรที่ใกล้ที่สุดแบบเรียลไทม์">
     <meta property="twitter:image" content="https://grogunaja.github.io/clock-in-near-me/assets/images/logo_3.jpg">
 
     <!-- Favicon & Bookmark / Favorites Icons -->
@@ -113,7 +113,7 @@
                         กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS)
                     </h3>
                     <p class="text-xs text-slate-600" id="gpsAlertMessage">
-                        ระบบจะคำนวณระยะทาง และเรียงลำดับสถานที่ที่ใกล้ที่สุดตลอดเวลาที่คุณเดิน
+                        ระบบจะคำนวณระยะทาง และเรียงลำดับจุดแตะบัตรที่ใกล้ที่สุดตลอดเวลาที่คุณเดิน
                     </p>
                 </div>
             </div>
@@ -167,8 +167,8 @@
                     </label>
                     <select id="sortSelect" onchange="handleSearchAndFilter()" class="bg-white border-[2.5px] border-pop-dark rounded-xl px-3 py-2.5 text-sm font-semibold shadow-neo-sm focus:outline-none cursor-pointer">
                         <option value="distance-asc">ใกล้ที่สุดก่อน (เมตร)</option>
+                        <option value="walkable">อยู่ใกล้มาก (&lt; 200 เมตร)</option>
                         <option value="name-asc">ชื่อสถานที่ (ก-ฮ)</option>
-                        <option value="walkable">สถานที่ใกล้มาก (&lt; 200 เมตร)</option>
                     </select>
                 </div>
             </div>
@@ -177,16 +177,17 @@
         <!-- ALL LOCATIONS SECTION (Cards Grid & Map View) -->
         <section class="space-y-4">
             <div id="locationsHeaderBar" class="scroll-mt-24 sm:scroll-mt-28 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h2 class="font-display text-xl sm:text-2xl font-semibold text-pop-dark flex items-center gap-2">
+                <h2 class="font-display text-xl sm:text-2xl font-semibold text-pop-dark flex items-baseline gap-2">
                     <span>📍จุดแตะบัตรทั้งหมด</span>
-                </h2>
-                <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-                    <span id="resultCountText" class="badge-neo text-xs sm:text-sm font-semibold text-pop-dark bg-white px-3.5 py-1.5">
-                        10 สถานที่
+                    <span class="text-slate-400 font-normal">·</span>
+                    <span id="resultCountText" class="font-display text-sm sm:text-base font-semibold text-pop-pink">
+                        10 จุด
                     </span>
-                    <!-- View Mode Switcher (List / Map) -->
-                    <div class="pill-container-neo text-xs">
-                        <button id="viewListBtn" onclick="switchView('list')" class="tab-btn-active" title="แสดงแบบการ์ดรายการ">
+                </h2>
+                <!-- View Mode Switcher (List / Map) -->
+                <div class="flex justify-end w-full sm:w-auto">
+                    <div class="pill-container-neo text-xs shrink-0">
+                        <button id="viewListBtn" onclick="switchView('list')" class="tab-btn-active" title="แสดงแบบรายการ">
                             <i class="ph-bold ph-list-dashes text-sm"></i>
                             <span>รายการ</span>
                         </button>
@@ -207,14 +208,14 @@
             <div id="mapViewContainer" class="hidden relative w-full h-[520px] sm:h-[620px] rounded-3xl overflow-hidden border-[3px] border-pop-dark shadow-neo bg-white">
                 <div id="sirirajMap" class="w-full h-full z-10"></div>
                 <!-- Map Quick Floating Controls -->
-                <div class="absolute top-3 right-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
-                    <button onclick="recenterMapToUser()" class="btn-map-control" title="เล็งไปที่ตำแหน่งของฉัน">
+                <div id="mapQuickControls" class="absolute top-3 right-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
+                    <button id="recenterBtn" onclick="recenterMapToUser()" class="btn-map-control" title="เล็งไปที่ตำแหน่งของฉัน">
                         <i class="ph-bold ph-crosshair text-base text-pop-pink"></i>
                         <span class="hidden sm:inline">ตำแหน่งฉัน</span>
                     </button>
-                    <button onclick="fitAllBuildingPins()" class="btn-map-control" title="แสดงภาพรวมทุกสถานที่">
-                        <i class="ph-bold ph-buildings text-base text-pop-blue"></i>
-                        <span class="hidden sm:inline">ภาพรวมทุกสถานที่</span>
+                    <button id="overviewMapBtn" onclick="fitAllBuildingPins()" class="btn-map-control" title="ดูจุดแตะบัตรทั้งหมด">
+                        <i id="overviewMapIcon" class="ph-bold ph-buildings text-base text-pop-blue"></i>
+                        <span id="overviewMapText" class="hidden sm:inline">ทั้งหมด</span>
                     </button>
                 </div>
                 <!-- Map Legend Banner -->
