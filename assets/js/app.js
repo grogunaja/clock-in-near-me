@@ -382,6 +382,7 @@ function handleSearchAndFilter() {
 
     renderLocationsGrid(filtered);
     if (leafletMap) renderLeafletPins(filtered);
+    isFullProvinceOverview = false;
     setTimeout(adjustFloatingButtonPosition, 60);
 }
 
@@ -549,6 +550,13 @@ const SIRIRAJ_MAIN_LNG = 100.4850;
 let isFullProvinceOverview = false;
 
 // Smart Proximity Helpers
+function isInsideSirirajHospital(loc) {
+    if (!loc) return false;
+    if (loc.isMainHospital !== undefined) return Boolean(loc.isMainHospital);
+    if (loc.campus) return loc.campus === 'main' || loc.campus === 'siriraj';
+    return Number(loc.id) <= 24;
+}
+
 function getNearestLocation() {
     if (!locationsData || locationsData.length === 0) return null;
     return [...locationsData].sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity))[0];
@@ -557,32 +565,24 @@ function getNearestLocation() {
 function getLocalClusterLocations() {
     const nearest = getNearestLocation();
 
-    // If user has GPS and is within 5 km of any building, center the cluster around that building
-    let centerLat = SIRIRAJ_MAIN_LAT;
-    let centerLng = SIRIRAJ_MAIN_LNG;
-
-    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 5000) {
-        centerLat = nearest.lat;
-        centerLng = nearest.lng;
+    // If user has real GPS and is close to an external/satellite site (ID 25 กายอุปกรณ์, ID 26 ปฐมภูมิ, ID 27 สาย 3, ID 28 ICS, ID 29 สมุทรสาคร)
+    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 3000 && !isInsideSirirajHospital(nearest)) {
+        return [nearest];
     }
 
-    // Include buildings within 4 km of the active center (groups Siriraj Bangkok Noi together, isolates satellite campuses)
-    const localList = locationsData.filter(loc => {
-        const dist = calculateDistanceInMeters(centerLat, centerLng, loc.lat, loc.lng);
-        return dist <= 4000;
-    });
-
-    return localList.length > 0 ? localList : locationsData;
+    // Default & Main Cluster: เฉพาะตึกภายในโรงพยาบาลศิริราช (IDs 1-24)
+    const sirirajHospitalList = locationsData.filter(loc => isInsideSirirajHospital(loc));
+    return sirirajHospitalList.length > 0 ? sirirajHospitalList : locationsData;
 }
 
 function focusMapOnProximity() {
     if (!leafletMap) return;
     const nearest = getNearestLocation();
-    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 5000) {
-        // User is near a building / campus: focus on user at detailed street zoom
+    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 3000) {
+        // User is near a specific building / campus: focus on user at detailed street zoom
         leafletMap.setView([userLocation.lat, userLocation.lng], 17, { animate: true });
     } else {
-        // User is remote (> 5 km) or no GPS: default to Siriraj Main Campus
+        // User is remote (> 3 km) or no GPS: default to Siriraj Hospital center
         leafletMap.setView([SIRIRAJ_MAIN_LAT, SIRIRAJ_MAIN_LNG], 17, { animate: true });
     }
 }
@@ -612,6 +612,7 @@ function switchView(viewMode) {
         if (floatText) floatText.textContent = "ดูรายการ";
 
         // Initialize or refresh Leaflet Map with smart proximity focus
+        isFullProvinceOverview = false;
         if (!leafletMap) {
             initLeafletMap();
         } else {
@@ -669,10 +670,10 @@ function initLeafletMap() {
     const mapElement = document.getElementById('sirirajMap');
     if (!mapElement) return;
 
-    // Smart Initial Center: If user is within 5 km of a campus, start there; otherwise start at Siriraj Main Campus
+    // Smart Initial Center: If user is within 3 km of a campus, start there; otherwise start at Siriraj Hospital
     let initialCenter = [SIRIRAJ_MAIN_LAT, SIRIRAJ_MAIN_LNG];
     const nearest = getNearestLocation();
-    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 5000) {
+    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 3000) {
         initialCenter = [userLocation.lat, userLocation.lng];
     }
 
@@ -683,8 +684,8 @@ function initLeafletMap() {
         attributionControl: true
     });
 
-    // Reset province overview toggle when user interacts with map
-    leafletMap.on('dragstart zoomstart', () => {
+    // Reset province overview toggle only when user manually drags the map
+    leafletMap.on('dragstart', () => {
         isFullProvinceOverview = false;
     });
 
@@ -856,6 +857,7 @@ function updateUserLeafletPosition() {
 
 function recenterMapToUser() {
     if (!leafletMap) return;
+    isFullProvinceOverview = false;
     if (userLocation.hasRealGPS) {
         leafletMap.setView([userLocation.lat, userLocation.lng], 18, { animate: true });
         showToast("📍 เล็งพิกัดตำแหน่งคุณแล้ว", `พิกัดสด (±${userLocation.accuracy || 0} ม.)`);
@@ -869,13 +871,13 @@ function fitAllBuildingPins() {
     if (!leafletMap || leafletMarkers.length === 0) return;
 
     if (isFullProvinceOverview) {
-        // 2nd click: Show all buildings across every campus (Bangkok, Samut Sakhon, Sai 3, ICS)
+        // 2nd click: Show all buildings across every campus (รวมกายอุปกรณ์, ปฐมภูมิ, สาย 3, ICS, สมุทรสาคร)
         const group = L.featureGroup(leafletMarkers);
         if (userLocation.hasRealGPS && userLeafletMarker) {
             group.addLayer(userLeafletMarker);
         }
         leafletMap.fitBounds(group.getBounds().pad(0.1), { animate: true });
-        showToast("🌐 ภาพรวมทุกวิทยาเขต", "แสดงจุดแตะบัตรทุกวิทยาเขต (รวมสมุทรสาคร / สาย 3 / ICS)");
+        showToast("🌐 ภาพรวมทุกวิทยาเขต", "แสดงจุดแตะบัตรทุกวิทยาเขต");
         isFullProvinceOverview = false;
     } else {
         // 1st click (Default): Smart Local Campus Overview
@@ -888,17 +890,18 @@ function fitAllBuildingPins() {
 
         if (userLocation.hasRealGPS && userLeafletMarker) {
             const nearest = getNearestLocation();
-            if (nearest && nearest.distanceMeters <= 5000) {
+            if (nearest && nearest.distanceMeters <= 3000) {
                 group.addLayer(userLeafletMarker);
             }
         }
 
         leafletMap.fitBounds(group.getBounds().pad(0.12), { animate: true });
 
-        const clusterName = (localLocs.length >= 20) 
-            ? "วิทยาเขตศิริราช (บางกอกน้อย)" 
+        const isMainHosp = localLocs.every(l => isInsideSirirajHospital(l));
+        const clusterName = isMainHosp 
+            ? "ภายในโรงพยาบาลศิริราช" 
             : (localLocs[0]?.name || "พื้นที่ใกล้คุณ");
-        showToast("📍 ภาพรวมพื้นที่", `โฟกัส ${clusterName} (${targetMarkers.length} จุด) • กดซ้ำเพื่อดูทุกวิทยาเขต`);
+        showToast("📍 ภาพรวมพื้นที่", `โฟกัส${clusterName} (${targetMarkers.length} จุด) • กดซ้ำเพื่อดูทุกวิทยาเขต`);
         isFullProvinceOverview = true;
     }
 }
