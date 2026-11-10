@@ -47,23 +47,35 @@ function calculateDistanceInMeters(lat1, lon1, lat2, lon2) {
 }
 
 function formatDistanceBadge(meters) {
+    if (meters == null || isNaN(meters)) return "กำลังคำนวณ...";
     if (meters <= 15) {
         return `อยู่ที่นี่แล้ว (~${meters} ม.)`;
     } else if (meters < 1000) {
         return `ห่าง ${meters.toLocaleString('th-TH')} เมตร`;
     } else {
         const km = (meters / 1000).toFixed(1);
-        return `ห่าง ${meters.toLocaleString('th-TH')} เมตร (${km} กม.)`;
+        return `ห่าง ${km} กม. (${meters.toLocaleString('th-TH')} ม.)`;
     }
 }
 
 function getWalkingTimeText(meters) {
+    if (meters == null || isNaN(meters)) return "🚶 กำลังคำนวณ...";
     if (meters <= 25) return "🎯 ถึงแล้ว!";
     if (meters <= 80) return "🏃 เดิน < 1 นาที";
     const mins = Math.ceil(meters / 80);
     if (mins <= 15) return `🚶 เดิน ~${mins} นาที`;
+    
+    // Calculate vehicle travel time (~27 km/h urban traffic speed)
     const driveMins = Math.max(2, Math.ceil(meters / 450));
-    return `🛵 นั่งรถ ~${driveMins} นาที`;
+    if (driveMins < 60) {
+        return `🚗 เดินทาง ~${driveMins} นาที`;
+    } else {
+        const hours = Math.floor(driveMins / 60);
+        const remainMins = driveMins % 60;
+        return remainMins > 0 
+            ? `🚗 เดินทาง ~${hours} ชม. ${remainMins} นาที` 
+            : `🚗 เดินทาง ~${hours} ชม.`;
+    }
 }
 
 function getGoogleMapsUrl(destLat, destLng, placeName) {
@@ -178,6 +190,7 @@ function getSlideHTML(loc, isHero = false) {
     const hasBoth = Boolean(img1 && img2);
     const key = isHero ? 'hero' : loc.id;
     const fallback = 'assets/images/noimage.jpg';
+    const loadMode = isHero ? 'eager' : 'lazy';
 
     if (!hasBoth) {
         return `
@@ -185,6 +198,8 @@ function getSlideHTML(loc, isHero = false) {
                 src="${img1 || img2 || fallback}" 
                 alt="${loc.name}" 
                 onerror="this.src='${fallback}'"
+                loading="${loadMode}"
+                decoding="async"
                 class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             >
         `;
@@ -200,6 +215,8 @@ function getSlideHTML(loc, isHero = false) {
                 src="${img1}" 
                 alt="${loc.name} - รูปอาคาร" 
                 onerror="this.src='${fallback}'"
+                loading="${loadMode}"
+                decoding="async"
                 class="slide-img-1 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-100' : 'opacity-0'}"
             >
 
@@ -209,6 +226,8 @@ function getSlideHTML(loc, isHero = false) {
                 src="${img2}" 
                 alt="${loc.name} - รูปจุดแตะบัตรจริง" 
                 onerror="this.src='${fallback}'"
+                loading="${loadMode}"
+                decoding="async"
                 class="slide-img-2 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-0' : 'opacity-100'}"
             >
         </div>
@@ -237,6 +256,9 @@ function updateSlideElement(key, slideIdx) {
 function startSlideshowTimer() {
     if (slideshowTimer) clearInterval(slideshowTimer);
     slideshowTimer = setInterval(() => {
+        // Battery & CPU optimization: only animate if tab is visible and currently on List view
+        if (document.hidden || currentView !== 'list') return;
+
         globalSlideIndex = (globalSlideIndex === 0) ? 1 : 0;
         document.querySelectorAll('.slideshow-box').forEach(box => {
             const key = box.getAttribute('data-slide-id');
@@ -244,6 +266,22 @@ function startSlideshowTimer() {
         });
     }, 3500); // changes every 3.5 seconds
 }
+
+function stopSlideshowTimer() {
+    if (slideshowTimer) {
+        clearInterval(slideshowTimer);
+        slideshowTimer = null;
+    }
+}
+
+// Automatically pause slideshow when tab is hidden to save mobile battery
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopSlideshowTimer();
+    } else if (currentView === 'list') {
+        startSlideshowTimer();
+    }
+});
 
 // ==========================================
 // 5. RENDERING HERO (NEAREST) & GRID CARDS
@@ -283,8 +321,10 @@ function renderNearestHero(spot) {
     if (lastKnownHeroId === spot.id && container.children.length > 0) {
         const distEl = document.getElementById('heroDistanceText');
         const mapsLinkEl = document.getElementById('heroMapsLink');
+        const heroMapBtnEl = document.getElementById('heroMapBtn');
         if (distEl) distEl.textContent = formatDistanceBadge(spot.distanceMeters);
         if (mapsLinkEl) mapsLinkEl.href = mapsUrl;
+        if (heroMapBtnEl) heroMapBtnEl.setAttribute('onclick', `focusBuildingOnMap(${spot.id})`);
         return;
     }
 
@@ -328,19 +368,29 @@ function renderNearestHero(spot) {
                         </div>
                     </div>
 
-                    <!-- Single Primary Action Button: Google Maps -->
-                    <div class="pt-1">
+                    <!-- Action Buttons: Google Maps (Left) + View on Map (Right) -->
+                    <div class="pt-1 flex flex-row items-center gap-2 sm:gap-3">
                         <a 
                             id="heroMapsLink"
                             href="${mapsUrl}" 
                             target="_blank" 
                             rel="noopener noreferrer"
                             onclick="trackMapsClick('${spot.name}', true)"
-                            class="btn-neo btn-blue w-full font-display font-semibold py-3.5 px-5 rounded-2xl text-sm sm:text-base flex items-center justify-center gap-2 shadow-neo"
+                            class="btn-neo btn-blue flex-grow font-display font-semibold py-3 sm:py-3.5 px-3 sm:px-5 rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-neo"
                         >
-                            <i class="ph-bold ph-navigation-arrow text-xl"></i>
+                            <i class="ph-bold ph-navigation-arrow text-base sm:text-xl"></i>
                             <span>นำทางด้วย Google Maps</span>
                         </a>
+                        <button
+                            type="button"
+                            id="heroMapBtn"
+                            onclick="focusBuildingOnMap(${spot.id})"
+                            class="btn-neo btn-white font-display font-semibold py-3 sm:py-3.5 px-3.5 sm:px-5 rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-neo cursor-pointer shrink-0 text-pop-dark hover:text-pop-pink"
+                            title="ดูตำแหน่งบนแผนที่"
+                        >
+                            <i class="ph-bold ph-map-trifold text-base sm:text-xl text-pop-pink"></i>
+                            <span>ดูบนแผนที่</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -455,10 +505,10 @@ function renderLocationsGrid(list) {
                         <div class="flex items-center justify-between bg-pop-bg px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm">
                             <div class="flex items-center gap-1.5 text-pop-dark font-display font-semibold text-xs sm:text-sm">
                                 <i class="ph-fill ph-footprints text-pop-pink text-base"></i>
-                                <span class="dist-val">${loc.distanceMeters.toLocaleString('th-TH')} เมตร</span>
+                                <span class="dist-val">${loc.distanceMeters < 1000 ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร` : `${(loc.distanceMeters / 1000).toFixed(1)} กม.`}</span>
                             </div>
                             <span class="text-[11px] font-semibold text-slate-500">
-                                ${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : (loc.distanceMeters / 1000).toFixed(1) + ' กม.'}
+                                ${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : `${loc.distanceMeters.toLocaleString('th-TH')} ม.`}
                             </span>
                         </div>
 
@@ -476,18 +526,27 @@ function renderLocationsGrid(list) {
                     </div>
                 </div>
 
-                <!-- Card Footer Actions: Single Full-Width Maps Button -->
-                <div class="px-4 pb-4 sm:px-5 sm:pb-5 pt-1">
+                <!-- Card Footer Actions: Google Maps (Left) + View on Map (Right, Icon Only) -->
+                <div class="px-4 pb-4 sm:px-5 sm:pb-5 pt-1 flex items-center gap-2">
                     <a 
                         href="${mapsUrl}" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         onclick="trackMapsClick('${loc.name}', false)"
-                        class="btn-neo btn-yellow w-full font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
+                        class="btn-neo btn-yellow flex-grow font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
                     >
                         <i class="ph-bold ph-navigation-arrow text-base"></i>
                         <span>นำทางด้วย Google Maps</span>
                     </a>
+                    <button 
+                        type="button"
+                        onclick="focusBuildingOnMap(${loc.id})"
+                        title="ดูตำแหน่งบนแผนที่"
+                        aria-label="ดู ${loc.name} บนแผนที่"
+                        class="btn-neo btn-white w-10 h-10 shrink-0 rounded-xl flex items-center justify-center shadow-neo-sm text-pop-dark hover:text-pop-pink cursor-pointer"
+                    >
+                        <i class="ph-bold ph-map-trifold text-lg"></i>
+                    </button>
                 </div>
             </article>
         `;
@@ -512,9 +571,12 @@ function resetAllFilters() {
 }
 
 let toastTimeout;
-function showToast(title, message) {
+function showToast(title, message, emoji = '📡') {
     const toast = document.getElementById('toastBox');
     if (!toast) return;
+
+    const emojiEl = document.getElementById('toastEmoji');
+    if (emojiEl) emojiEl.textContent = emoji;
 
     document.getElementById('toastTitle').textContent = title;
     document.getElementById('toastMessage').textContent = message;
@@ -539,6 +601,13 @@ function startClock() {
     };
     update();
     setInterval(update, 1000);
+}
+
+// Start clock immediately so users never see placeholder time
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startClock);
+} else {
+    startClock();
 }
 
 // ==========================================
@@ -587,7 +656,7 @@ function focusMapOnProximity() {
     }
 }
 
-function switchView(viewMode) {
+function switchView(viewMode, skipProximity = false) {
     currentView = viewMode;
     const listGrid = document.getElementById('locationsGrid');
     const emptyState = document.getElementById('emptyState');
@@ -599,6 +668,7 @@ function switchView(viewMode) {
     const floatText = document.getElementById('floatingToggleText');
 
     if (viewMode === 'map') {
+        stopSlideshowTimer(); // Pause image slideshow to save CPU/battery while viewing map
         if (listGrid) listGrid.classList.add('hidden');
         if (emptyState) emptyState.classList.add('hidden');
         if (mapContainer) mapContainer.classList.remove('hidden');
@@ -618,7 +688,9 @@ function switchView(viewMode) {
         } else {
             setTimeout(() => {
                 leafletMap.invalidateSize();
-                focusMapOnProximity();
+                if (!skipProximity) {
+                    focusMapOnProximity();
+                }
             }, 100);
         }
 
@@ -627,6 +699,7 @@ function switchView(viewMode) {
         }
     } else {
         // 'list' view
+        startSlideshowTimer(); // Resume image slideshow
         if (listGrid) listGrid.classList.remove('hidden');
         if (mapContainer) mapContainer.classList.add('hidden');
 
@@ -663,6 +736,51 @@ function toggleView() {
     switchView(currentView === 'list' ? 'map' : 'list');
     // เลื่อนหน้าจอลงมาที่ส่วนจุดแตะบัตรทั้งหมด เพื่อให้ผู้ใช้เห็นการเปลี่ยนแปลงทันที
     setTimeout(scrollToLocations, 60);
+}
+
+function focusBuildingOnMap(buildingId) {
+    const targetLoc = locationsData.find(l => l.id === Number(buildingId));
+    if (!targetLoc || targetLoc.lat == null || targetLoc.lng == null) return;
+
+    if (typeof gtag === 'function') {
+        gtag('event', 'focus_building_map', {
+            building_id: targetLoc.id,
+            building_name: targetLoc.name
+        });
+    }
+
+    const wasListView = (currentView !== 'map');
+    if (wasListView) {
+        switchView('map', true); // ข้ามการตั้งค่า proximity อัตโนมัติ เพื่อบินตรงไปยังอาคารเป้าหมาย
+    }
+
+    // เลื่อนมุมมองหน้าจอลงมายังส่วนแผนที่
+    setTimeout(scrollToLocations, 60);
+
+    const delay = wasListView ? 200 : 60;
+    setTimeout(() => {
+        if (!leafletMap) return;
+        leafletMap.invalidateSize();
+
+        let popupOpened = false;
+        const openTargetPopup = () => {
+            if (popupOpened) return;
+            popupOpened = true;
+            let marker = leafletMarkers.find(m => m._locationData && m._locationData.id === targetLoc.id);
+            if (!marker) {
+                renderLeafletPins();
+                marker = leafletMarkers.find(m => m._locationData && m._locationData.id === targetLoc.id);
+            }
+            if (marker) {
+                marker.openPopup();
+            }
+        };
+
+        // เมื่อหมุดเคลื่อนที่ถึงตำแหน่ง ให้เปิดการ์ดข้อมูล Apple Maps popup ทันที
+        leafletMap.once('moveend', openTargetPopup);
+        leafletMap.flyTo([targetLoc.lat, targetLoc.lng], 18, { animate: true, duration: 0.8 });
+        setTimeout(openTargetPopup, 900); // เผื่อกรณีที่พิกัดใกล้มากจน moveend ไม่ทริกเกอร์
+    }, delay);
 }
 
 function initLeafletMap() {
@@ -757,7 +875,9 @@ function renderLeafletPins(filterList = null) {
         const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.name);
         const popupImg = loc.image1 || 'assets/images/noimage.jpg';
         const distText = (loc.distanceMeters !== undefined) 
-            ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร (${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : (loc.distanceMeters/1000).toFixed(1) + ' กม.'})`
+            ? (loc.distanceMeters < 1000 
+                ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร (ระยะเดินถึง)` 
+                : `${(loc.distanceMeters / 1000).toFixed(1)} กม. (${loc.distanceMeters.toLocaleString('th-TH')} ม.)`)
             : 'กำลังคำนวณ...';
 
         const infoContent = `
@@ -877,7 +997,7 @@ function fitAllBuildingPins() {
             group.addLayer(userLeafletMarker);
         }
         leafletMap.fitBounds(group.getBounds().pad(0.1), { animate: true });
-        showToast("🌐 ภาพรวมทุกวิทยาเขต", "แสดงจุดแตะบัตรทุกวิทยาเขต");
+        showToast("🌐 จุดแตะบัตรทั้งหมด", "กดซ้ำเพื่อดูจุดแตะบัตรภายในโรงพยาบาลศิริราช");
         isFullProvinceOverview = false;
     } else {
         // 1st click (Default): Smart Local Campus Overview
@@ -901,7 +1021,7 @@ function fitAllBuildingPins() {
         const clusterName = isMainHosp 
             ? "ภายในโรงพยาบาลศิริราช" 
             : (localLocs[0]?.name || "พื้นที่ใกล้คุณ");
-        showToast("📍 ภาพรวมพื้นที่", `โฟกัส${clusterName} (${targetMarkers.length} จุด) • กดซ้ำเพื่อดูทุกวิทยาเขต`);
+        showToast(`📍 ${clusterName}`, `กดซ้ำเพื่อดูจุดแตะบัตรทั้งหมด`);
         isFullProvinceOverview = true;
     }
 }
