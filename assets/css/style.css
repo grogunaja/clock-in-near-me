@@ -371,3 +371,22 @@ body {
     color: #FFFFFF !important;
     text-decoration: none !important;
 }
+
+/* Neo-pop Leaflet Popup Styling */
+.neo-leaflet-popup .leaflet-popup-content-wrapper {
+    border: 2.5px solid #1E1B2E !important;
+    border-radius: 18px !important;
+    box-shadow: 4px 4px 0px #1E1B2E !important;
+    padding: 2px !important;
+}
+.neo-leaflet-popup .leaflet-popup-tip {
+    border: 2px solid #1E1B2E !important;
+}
+.neo-leaflet-popup .leaflet-popup-close-button {
+    padding: 6px 10px 0 0 !important;
+    font-size: 18px !important;
+    color: #1E1B2E !important;
+    font-weight: 700 !important;
+    width: 28px !important;
+    height: 28px !important;
+}
