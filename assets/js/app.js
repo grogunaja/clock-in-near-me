@@ -25,6 +25,9 @@ let leafletMarkers = [];
 let userLeafletMarker = null;
 let userLeafletCircle = null;
 let activePopupLocId = null;
+let lastFocusedBuildingId = null;
+let lastFocusedSource = null; // 'hero' | 'grid'
+let lastListScrollY = null;
 
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
@@ -317,7 +320,7 @@ function renderNearestHero(spot) {
         const heroMapBtnEl = document.getElementById('heroMapBtn');
         if (distEl) distEl.textContent = formatDistanceBadge(spot.distanceMeters);
         if (mapsLinkEl) mapsLinkEl.href = mapsUrl;
-        if (heroMapBtnEl) heroMapBtnEl.setAttribute('onclick', `focusBuildingOnMap(${spot.id})`);
+        if (heroMapBtnEl) heroMapBtnEl.setAttribute('onclick', `focusBuildingOnMap(${spot.id}, 'hero')`);
         return;
     }
 
@@ -377,7 +380,7 @@ function renderNearestHero(spot) {
                         <button
                             type="button"
                             id="heroMapBtn"
-                            onclick="focusBuildingOnMap(${spot.id})"
+                            onclick="focusBuildingOnMap(${spot.id}, 'hero')"
                             class="btn-neo btn-white font-display font-semibold py-3 sm:py-3.5 px-3.5 sm:px-5 rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-neo cursor-pointer shrink-0 text-pop-dark hover:text-pop-pink"
                         >
                             <i class="ph-bold ph-map-trifold text-base sm:text-xl text-pop-pink"></i>
@@ -531,7 +534,7 @@ function renderLocationsGrid(list) {
                     </a>
                     <button 
                         type="button"
-                        onclick="focusBuildingOnMap(${loc.id})"
+                        onclick="focusBuildingOnMap(${loc.id}, 'grid')"
                         aria-label="ดู ${loc.name} บนแผนที่"
                         class="btn-neo btn-white w-10 h-10 shrink-0 rounded-xl flex items-center justify-center shadow-neo-sm text-pop-dark hover:text-pop-pink cursor-pointer"
                     >
@@ -648,6 +651,9 @@ function focusMapOnProximity() {
 }
 
 function switchView(viewMode, skipProximity = false) {
+    if (currentView === viewMode) return;
+    const wasMapView = (currentView === 'map');
+    const wasListView = (currentView === 'list');
     currentView = viewMode;
     const listGrid = document.getElementById('locationsGrid');
     const emptyState = document.getElementById('emptyState');
@@ -659,6 +665,9 @@ function switchView(viewMode, skipProximity = false) {
     const floatText = document.getElementById('floatingToggleText');
 
     if (viewMode === 'map') {
+        if (wasListView && lastListScrollY === null) {
+            lastListScrollY = window.pageYOffset || document.documentElement.scrollTop;
+        }
         stopSlideshowTimer(); // Pause image slideshow to save CPU/battery while viewing map
         if (listGrid) listGrid.classList.add('hidden');
         if (emptyState) emptyState.classList.add('hidden');
@@ -672,6 +681,17 @@ function switchView(viewMode, skipProximity = false) {
         if (floatIcon) floatIcon.className = "ph-bold ph-list-dashes text-lg";
         if (floatText) floatText.textContent = "ดูรายการ";
 
+        // เมื่อสลับมาดูแผนที่จากแท็บหรือปุ่มลอย (ไม่ใช่กดเจาะจงมาจากปุ่มบนการ์ด)
+        // ให้ล้างค่าตึกที่เคยโฟกัส ปิด Popup และคืนค่ามุมมองภาพรวม
+        if (!skipProximity) {
+            activePopupLocId = null;
+            lastFocusedBuildingId = null;
+            lastFocusedSource = null;
+            if (leafletMap) {
+                leafletMap.closePopup();
+            }
+        }
+
         // Initialize or refresh Leaflet Map with smart proximity focus
         if (!leafletMap) {
             initLeafletMap();
@@ -679,6 +699,7 @@ function switchView(viewMode, skipProximity = false) {
             setTimeout(() => {
                 leafletMap.invalidateSize();
                 if (!skipProximity) {
+                    leafletMap.closePopup();
                     focusMapOnProximity();
                     updateOverviewButtonUI(false);
                 }
@@ -694,6 +715,12 @@ function switchView(viewMode, skipProximity = false) {
         if (listGrid) listGrid.classList.remove('hidden');
         if (mapContainer) mapContainer.classList.add('hidden');
 
+        // ปิด Popup บนแผนที่เมื่อสลับกลับมาดูรายการ
+        if (leafletMap) {
+            leafletMap.closePopup();
+        }
+        activePopupLocId = null;
+
         // Update Top Switcher Buttons (Neo-pop themed)
         if (listBtn) listBtn.className = "tab-btn-active";
         if (mapBtn) mapBtn.className = "tab-btn-inactive";
@@ -704,6 +731,10 @@ function switchView(viewMode, skipProximity = false) {
 
         if (typeof gtag === 'function') {
             gtag('event', 'switch_view', { view_mode: 'list' });
+        }
+
+        if (wasMapView) {
+            setTimeout(restoreListPosition, 80);
         }
     }
 
@@ -723,13 +754,65 @@ function scrollToLocations() {
     });
 }
 
-function toggleView() {
-    switchView(currentView === 'list' ? 'map' : 'list');
-    // เลื่อนหน้าจอลงมาที่ส่วนจุดแตะบัตรทั้งหมด เพื่อให้ผู้ใช้เห็นการเปลี่ยนแปลงทันที
-    setTimeout(scrollToLocations, 60);
+function restoreListPosition() {
+    let targetEl = null;
+
+    if (lastFocusedSource === 'hero') {
+        const heroContainer = document.getElementById('nearestCardContainer');
+        targetEl = heroContainer ? (heroContainer.firstElementChild || heroContainer) : null;
+    } else if (lastFocusedBuildingId) {
+        targetEl = document.querySelector(`#locationsGrid [data-id="${lastFocusedBuildingId}"]`);
+    } else if (activePopupLocId) {
+        targetEl = document.querySelector(`#locationsGrid [data-id="${activePopupLocId}"]`);
+    }
+
+    // Fallback if specific source card was not found
+    if (!targetEl && (lastFocusedBuildingId || activePopupLocId)) {
+        const fallbackId = lastFocusedBuildingId || activePopupLocId;
+        targetEl = document.querySelector(`#locationsGrid [data-id="${fallbackId}"]`);
+    }
+
+    if (targetEl) {
+        const navHeader = document.querySelector('header');
+        const navHeight = navHeader ? navHeader.offsetHeight : 80;
+        const rect = targetEl.getBoundingClientRect();
+        const targetY = rect.top + window.pageYOffset - navHeight - 16;
+
+        window.scrollTo({
+            top: Math.max(0, targetY),
+            behavior: 'smooth'
+        });
+
+        // รีเซ็ตค่าการจำตำแหน่งชั่วคราว
+        lastFocusedBuildingId = null;
+        lastFocusedSource = null;
+        lastListScrollY = null;
+        return;
+    }
+
+    if (lastListScrollY !== null && lastListScrollY !== undefined) {
+        window.scrollTo({
+            top: lastListScrollY,
+            behavior: 'smooth'
+        });
+        lastListScrollY = null;
+        return;
+    }
+
+    // กรณีไม่มีการ์ดที่จำไว้ ให้เลื่อนลงมาที่หัวข้อจุดแตะบัตรตามปกติ
+    scrollToLocations();
 }
 
-function focusBuildingOnMap(buildingId) {
+function toggleView() {
+    if (currentView === 'list') {
+        switchView('map');
+        setTimeout(scrollToLocations, 60);
+    } else {
+        switchView('list');
+    }
+}
+
+function focusBuildingOnMap(buildingId, source = null) {
     const targetLoc = locationsData.find(l => l.id === Number(buildingId));
     if (!targetLoc || targetLoc.lat == null || targetLoc.lng == null) return;
 
@@ -742,7 +825,13 @@ function focusBuildingOnMap(buildingId) {
 
     const wasListView = (currentView !== 'map');
     if (wasListView) {
+        lastListScrollY = window.pageYOffset || document.documentElement.scrollTop;
+        lastFocusedBuildingId = Number(buildingId);
+        lastFocusedSource = source;
         switchView('map', true); // ข้ามการตั้งค่า proximity อัตโนมัติ เพื่อบินตรงไปยังอาคารเป้าหมาย
+    } else {
+        lastFocusedBuildingId = Number(buildingId);
+        if (source) lastFocusedSource = source;
     }
 
     // เลื่อนมุมมองหน้าจอลงมายังส่วนแผนที่
@@ -1035,6 +1124,8 @@ function updateOverviewButtonUI(isWideOverview) {
 
 function recenterMapToUser() {
     if (!leafletMap) return;
+    leafletMap.closePopup();
+    activePopupLocId = null;
     updateOverviewButtonUI(false);
     if (userLocation.hasRealGPS) {
         leafletMap.setView([userLocation.lat, userLocation.lng], 18, { animate: true });
@@ -1050,6 +1141,9 @@ function fitAllBuildingPins() {
     if (isTogglingOverview) return;
     isTogglingOverview = true;
     setTimeout(() => { isTogglingOverview = false; }, 600);
+
+    leafletMap.closePopup();
+    activePopupLocId = null;
 
     // ตรวจสอบจากระดับ Zoom ปัจจุบันของแผนที่:
     // - ถ้า Zoom <= 13 (แสดงว่าอยู่ในมุมมองกว้างครอบคลุมหลายวิทยาเขต) -> สลับไปซูมเข้า "เฉพาะภายใน รพ.ศิริราช"
