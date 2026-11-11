@@ -54,7 +54,11 @@
     <!-- Tailwind Custom Configuration -->
     <script src="assets/js/tailwind.config.js"></script>
 
-    <!-- Leaflet CSS -->
+    <!-- Leaflet CSS & Map DNS Prefetch -->
+    <link rel="preconnect" href="https://a.tile.openstreetmap.fr" crossorigin>
+    <link rel="dns-prefetch" href="https://a.tile.openstreetmap.fr">
+    <link rel="dns-prefetch" href="https://b.tile.openstreetmap.fr">
+    <link rel="dns-prefetch" href="https://c.tile.openstreetmap.fr">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 
     <!-- Custom Styles -->
@@ -117,7 +121,7 @@
                     </p>
                 </div>
             </div>
-            <button onclick="startLiveTracking()" class="btn-neo btn-mint font-semibold px-4 py-2 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0">
+            <button type="button" onclick="startLiveTracking()" class="btn-neo btn-mint font-semibold px-4 py-2 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0">
                 <i class="ph-bold ph-crosshair"></i>
                 <span>เปิดใช้งาน GPS</span>
             </button>
@@ -153,9 +157,10 @@
                         id="searchInput" 
                         oninput="handleSearchAndFilter()"
                         placeholder="ค้นหาชื่อสถานที่..." 
+                        aria-label="ค้นหาชื่อสถานที่หรือจุดสแกน"
                         class="w-full pl-12 pr-10 py-3 rounded-2xl bg-white border-[2.5px] border-pop-dark shadow-neo-sm focus:outline-none focus:ring-4 focus:ring-pop-yellow text-sm sm:text-base font-medium placeholder:text-slate-400"
                     >
-                    <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-200 hover:bg-pop-pink hover:text-white flex items-center justify-center text-slate-600 transition">
+                    <button type="button" id="clearSearchBtn" onclick="clearSearch()" aria-label="ล้างคำค้นหา" class="hidden absolute right-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-200 hover:bg-pop-pink hover:text-white flex items-center justify-center text-slate-600 transition">
                         <i class="ph-bold ph-x text-sm"></i>
                     </button>
                 </div>
@@ -165,7 +170,7 @@
                     <label for="sortSelect" class="text-xs sm:text-sm font-semibold text-pop-dark shrink-0">
                         <i class="ph-bold ph-arrows-down-up mr-1"></i>เรียงตาม:
                     </label>
-                    <select id="sortSelect" onchange="handleSearchAndFilter()" class="bg-white border-[2.5px] border-pop-dark rounded-xl px-3 py-2.5 text-sm font-semibold shadow-neo-sm focus:outline-none cursor-pointer">
+                    <select id="sortSelect" onchange="handleSearchAndFilter()" aria-label="จัดเรียงลำดับจุดแตะบัตร" class="bg-white border-[2.5px] border-pop-dark rounded-xl px-3 py-2.5 text-sm font-semibold shadow-neo-sm focus:outline-none cursor-pointer">
                         <option value="distance-asc">ใกล้ที่สุดก่อน (เมตร)</option>
                         <option value="walkable">อยู่ใกล้มาก (&lt; 200 เมตร)</option>
                         <option value="name-asc">ชื่อสถานที่ (ก-ฮ)</option>
@@ -181,17 +186,17 @@
                     <span>📍จุดแตะบัตรทั้งหมด</span>
                     <span class="text-slate-400 font-normal">·</span>
                     <span id="resultCountText" class="font-display text-sm sm:text-base font-semibold text-pop-pink">
-                        10 จุด
+                        ... จุด
                     </span>
                 </h2>
                 <!-- View Mode Switcher (List / Map) -->
                 <div class="flex justify-end w-full sm:w-auto">
                     <div class="pill-container-neo text-xs shrink-0">
-                        <button id="viewListBtn" onclick="switchView('list')" class="tab-btn-active" title="แสดงแบบรายการ">
+                        <button type="button" id="viewListBtn" onclick="switchView('list')" class="tab-btn-active" title="แสดงแบบรายการ" aria-label="แสดงแบบรายการ">
                             <i class="ph-bold ph-list-dashes text-sm"></i>
                             <span>รายการ</span>
                         </button>
-                        <button id="viewMapBtn" onclick="switchView('map')" class="tab-btn-inactive" title="แสดงแบบแผนที่ปักหมุด">
+                        <button type="button" id="viewMapBtn" onclick="switchView('map')" class="tab-btn-inactive" title="แสดงแบบแผนที่ปักหมุด" aria-label="แสดงแบบแผนที่ปักหมุด">
                             <i class="ph-bold ph-map-trifold text-sm"></i>
                             <span>แผนที่</span>
                         </button>
@@ -209,11 +214,11 @@
                 <div id="sirirajMap" class="w-full h-full z-10"></div>
                 <!-- Map Quick Floating Controls -->
                 <div id="mapQuickControls" class="absolute top-3 right-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
-                    <button id="recenterBtn" onclick="recenterMapToUser()" class="btn-map-control" title="เล็งไปที่ตำแหน่งของฉัน">
+                    <button type="button" id="recenterBtn" onclick="recenterMapToUser()" class="btn-map-control" title="เล็งไปที่ตำแหน่งของฉัน" aria-label="เล็งไปที่ตำแหน่งของฉัน">
                         <i class="ph-bold ph-crosshair text-base text-pop-pink"></i>
                         <span class="hidden sm:inline">ตำแหน่งฉัน</span>
                     </button>
-                    <button id="overviewMapBtn" onclick="fitAllBuildingPins()" class="btn-map-control" title="ดูจุดแตะบัตรทั้งหมด">
+                    <button type="button" id="overviewMapBtn" onclick="fitAllBuildingPins()" class="btn-map-control" title="ดูจุดแตะบัตรทั้งหมด" aria-label="ดูจุดแตะบัตรทั้งหมด">
                         <i id="overviewMapIcon" class="ph-bold ph-buildings text-base text-pop-blue"></i>
                         <span id="overviewMapText" class="hidden sm:inline">ทั้งหมด</span>
                     </button>
@@ -244,7 +249,7 @@
                 >
                 <h3 class="font-display text-xl font-semibold text-pop-dark mb-1">ไม่พบจุดแตะบัตรที่คุณค้นหา</h3>
                 <p class="text-sm text-slate-500 mb-5">ลองเปลี่ยนคำค้นหา หรือพิมพ์ชื่อสถานที่อื่นดูนะ!</p>
-                <button onclick="resetAllFilters()" class="btn-neo btn-pink font-semibold px-5 py-2.5 rounded-xl text-sm">
+                <button type="button" onclick="resetAllFilters()" class="btn-neo btn-pink font-semibold px-5 py-2.5 rounded-xl text-sm" aria-label="ล้างคำค้นหาทั้งหมด">
                     ล้างคำค้นหา
                 </button>
             </div>
@@ -254,7 +259,7 @@
 
     <!-- Floating Bottom View Toggle (For quick access on mobile/desktop) -->
     <div id="floatingToggleWrapper" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 pointer-events-auto">
-        <button id="floatingToggleBtn" onclick="toggleView()" class="btn-neo btn-pink font-display font-semibold px-5 py-2.5 rounded-full flex items-center gap-2 text-sm">
+        <button type="button" id="floatingToggleBtn" onclick="toggleView()" aria-label="สลับมุมมองระหว่างแผนที่และรายการ" class="btn-neo btn-pink font-display font-semibold px-5 py-2.5 rounded-full flex items-center gap-2 text-sm">
             <i id="floatingToggleIcon" class="ph-bold ph-map-trifold text-lg"></i>
             <span id="floatingToggleText">ดูแผนที่</span>
         </button>

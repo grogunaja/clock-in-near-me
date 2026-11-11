@@ -81,8 +81,25 @@ function getWalkingTimeText(meters) {
     }
 }
 
-function getGoogleMapsUrl(destLat, destLng) {
-    return `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destLat},${destLng}&travelmode=walking`;
+function getDistanceStatusBadge(meters) {
+    if (meters == null || isNaN(meters)) {
+        return { text: '', colorClass: 'text-slate-500', icon: 'ph-footprints' };
+    }
+    if (meters <= 450) {
+        return { text: 'ระยะเดินถึง', colorClass: 'text-emerald-700', icon: 'ph-footprints' };
+    }
+    if (meters <= 800) {
+        return { text: 'เดินปานกลาง', colorClass: 'text-amber-700', icon: 'ph-footprints' };
+    }
+    if (meters <= 1500) {
+        return { text: 'เดินไกล / นั่งรถ', colorClass: 'text-orange-700', icon: 'ph-footprints' };
+    }
+    return { text: 'เดินทางด้วยรถ', colorClass: 'text-slate-500', icon: 'ph-car' };
+}
+
+function getGoogleMapsUrl(destLat, destLng, distanceMeters = null) {
+    const travelMode = (distanceMeters != null && distanceMeters > 1500) ? 'driving' : 'walking';
+    return `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destLat},${destLng}&travelmode=${travelMode}`;
 }
 
 // Analytics Event Tracking Helper
@@ -310,7 +327,7 @@ function renderNearestHero(spot) {
     const walkingEl = document.getElementById('walkingEstimate');
     if (walkingEl) walkingEl.textContent = getWalkingTimeText(spot.distanceMeters);
 
-    const mapsUrl = getGoogleMapsUrl(spot.lat, spot.lng);
+    const mapsUrl = getGoogleMapsUrl(spot.lat, spot.lng, spot.distanceMeters);
     const container = document.getElementById('nearestCardContainer');
 
     // If the same building is still nearest, update distance elements directly to prevent image re-render
@@ -320,7 +337,10 @@ function renderNearestHero(spot) {
         const heroMapBtnEl = document.getElementById('heroMapBtn');
         if (distEl) distEl.textContent = formatDistanceBadge(spot.distanceMeters);
         if (mapsLinkEl) mapsLinkEl.href = mapsUrl;
-        if (heroMapBtnEl) heroMapBtnEl.setAttribute('onclick', `focusBuildingOnMap(${spot.id}, 'hero')`);
+        if (heroMapBtnEl) {
+            heroMapBtnEl.setAttribute('onclick', `focusBuildingOnMap(${spot.id}, 'hero')`);
+            heroMapBtnEl.setAttribute('aria-label', `ดู ${spot.name} บนแผนที่`);
+        }
         return;
     }
 
@@ -381,6 +401,7 @@ function renderNearestHero(spot) {
                             type="button"
                             id="heroMapBtn"
                             onclick="focusBuildingOnMap(${spot.id}, 'hero')"
+                            aria-label="ดู ${spot.name} บนแผนที่"
                             class="btn-neo btn-white font-display font-semibold py-3 sm:py-3.5 px-3.5 sm:px-5 rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-neo cursor-pointer shrink-0 text-pop-dark hover:text-pop-pink"
                         >
                             <i class="ph-bold ph-map-trifold text-base sm:text-xl text-pop-pink"></i>
@@ -471,7 +492,13 @@ function renderLocationsGrid(list) {
 
     grid.innerHTML = list.map((loc, index) => {
         const isNearest = loc.id === overallNearestId;
-        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng);
+        const statusBadge = getDistanceStatusBadge(loc.distanceMeters);
+        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.distanceMeters);
+        const distFormatted = (loc.distanceMeters != null && !isNaN(loc.distanceMeters))
+            ? (loc.distanceMeters < 1000 
+                ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร` 
+                : `${(loc.distanceMeters / 1000).toFixed(1)} กม.`)
+            : 'กำลังคำนวณ...';
 
         return `
             <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300" data-id="${loc.id}">
@@ -498,11 +525,11 @@ function renderLocationsGrid(list) {
                         <!-- Distance Meter Box (Above building name) -->
                         <div class="flex items-center justify-between bg-pop-bg px-3 py-1.5 rounded-xl border-2 border-pop-dark shadow-neo-sm">
                             <div class="flex items-center gap-1.5 text-pop-dark font-display font-semibold text-xs sm:text-sm">
-                                <i class="ph-fill ph-footprints text-pop-pink text-base"></i>
-                                <span>${loc.distanceMeters < 1000 ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร` : `${(loc.distanceMeters / 1000).toFixed(1)} กม.`}</span>
+                                <i class="ph-fill ${statusBadge.icon} text-pop-pink text-base"></i>
+                                <span>${distFormatted}</span>
                             </div>
-                            <span class="text-[11px] font-semibold text-slate-500">
-                                ${loc.distanceMeters < 1000 ? 'ระยะเดินถึง' : `${loc.distanceMeters.toLocaleString('th-TH')} ม.`}
+                            <span class="text-[11px] font-semibold ${statusBadge.colorClass} shrink-0">
+                                ${statusBadge.text}
                             </span>
                         </div>
 
@@ -1019,13 +1046,14 @@ function renderLeafletPins(filterList = null) {
             zIndexOffset: isNearest ? 1000 : 100
         }).addTo(leafletMap);
 
-        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng);
+        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.distanceMeters);
         const popupImg = loc.image1 || 'assets/images/noimage.jpg';
         const distText = (loc.distanceMeters !== undefined) 
             ? (loc.distanceMeters < 1000 
-                ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร (ระยะเดินถึง)` 
-                : `${(loc.distanceMeters / 1000).toFixed(1)} กม. (${loc.distanceMeters.toLocaleString('th-TH')} ม.)`)
+                ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร` 
+                : `${(loc.distanceMeters / 1000).toFixed(1)} กม.`)
             : 'กำลังคำนวณ...';
+        const popupIcon = (loc.distanceMeters != null && loc.distanceMeters > 1500) ? 'ph-car' : 'ph-footprints';
 
         const infoContent = `
             <div class="map-popup-card">
@@ -1034,7 +1062,7 @@ function renderLeafletPins(filterList = null) {
                 </div>
                 <div class="map-popup-title">${loc.name}</div>
                 <div class="map-popup-dist">
-                    <i class="ph-fill ph-footprints text-base"></i>
+                    <i class="ph-fill ${popupIcon} text-base"></i>
                     <span>${distText}</span>
                 </div>
                 <div class="map-popup-gate"><strong>จุดสแกน:</strong> ${loc.gateInfo || '-'}</div>
