@@ -785,12 +785,22 @@ function scrollToLocations() {
 }
 
 function restoreListPosition() {
+    // หากกดดูแผนที่มาจากการ์ด "ใกล้ฉันที่สุด" (Hero Card)
+    // เมื่อสลับกลับมาที่รายการ ให้เลื่อนขึ้นไปจนสุดจอด้านบน (top: 0) เพื่อให้เห็นหัวข้อ "ใกล้คุณที่สุดตอนนี้" ครบถ้วน
+    if (lastFocusedSource === 'hero') {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+        lastFocusedBuildingId = null;
+        lastFocusedSource = null;
+        lastListScrollY = null;
+        return;
+    }
+
     let targetEl = null;
 
-    if (lastFocusedSource === 'hero') {
-        const heroContainer = document.getElementById('nearestCardContainer');
-        targetEl = heroContainer ? (heroContainer.firstElementChild || heroContainer) : null;
-    } else if (lastFocusedBuildingId) {
+    if (lastFocusedBuildingId) {
         targetEl = document.querySelector(`#locationsGrid [data-id="${lastFocusedBuildingId}"]`);
     } else if (activePopupLocId) {
         targetEl = document.querySelector(`#locationsGrid [data-id="${activePopupLocId}"]`);
