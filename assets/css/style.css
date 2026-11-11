@@ -2,6 +2,10 @@
    Siriraj Check-in Locator - Custom Styles
    ========================================== */
 
+html, body {
+    overflow-anchor: none;
+}
+
 body {
     background-color: #FFFDF7;
     background-image: radial-gradient(#CBD5E1 1.2px, transparent 1.2px);
