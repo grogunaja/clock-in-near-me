@@ -334,7 +334,7 @@ function renderNearestHero(spot) {
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center relative z-10">
                 <!-- Image Column with Slideshow -->
                 <div class="lg:col-span-5 relative group">
-                    <div class="h-52 sm:h-60 w-full rounded-2xl overflow-hidden border-[3px] border-pop-dark shadow-neo bg-slate-200 relative">
+                    <div class="h-56 sm:h-72 md:h-[400px] lg:h-80 w-full rounded-2xl overflow-hidden border-[3px] border-pop-dark shadow-neo bg-slate-200 relative">
                         ${getSlideHTML(spot, true)}
                     </div>
                 </div>
