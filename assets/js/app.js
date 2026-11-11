@@ -668,6 +668,28 @@ function switchView(viewMode, skipProximity = false) {
         if (wasListView && lastListScrollY === null) {
             lastListScrollY = window.pageYOffset || document.documentElement.scrollTop;
         }
+
+        // ป้องกัน Browser ทำ Scroll Clamping หลุดไปชน Footer เมื่อความสูงหน้าเว็บหดลง
+        // หากตำแหน่ง Scroll ปัจจุบันอยู่ลึกกว่าหัวข้อ (เช่น เพิ่งสลับกลับไปดูการ์ดด้านล่าง)
+        // ให้ดึงตำแหน่งกลับมาที่ระดับหัวข้อทันทีก่อนสั่งซ่อน Grid
+        const headerEl = document.getElementById('locationsHeaderBar');
+        if (headerEl) {
+            let actualTop = 0;
+            let curr = headerEl;
+            while (curr) {
+                actualTop += curr.offsetTop || 0;
+                curr = curr.offsetParent;
+            }
+            const navHeader = document.querySelector('header');
+            const navHeight = navHeader ? navHeader.offsetHeight : 80;
+            const targetY = Math.max(0, actualTop - navHeight - 14);
+
+            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+            if (currentScroll > targetY) {
+                window.scrollTo(0, targetY);
+            }
+        }
+
         stopSlideshowTimer(); // Pause image slideshow to save CPU/battery while viewing map
         if (listGrid) listGrid.classList.add('hidden');
         if (emptyState) emptyState.classList.add('hidden');
@@ -747,9 +769,17 @@ function scrollToLocations() {
     if (!headerEl) return;
     const navHeader = document.querySelector('header');
     const navHeight = navHeader ? navHeader.offsetHeight : 80;
-    const targetY = headerEl.getBoundingClientRect().top + window.pageYOffset - navHeight - 14;
+
+    let actualTop = 0;
+    let curr = headerEl;
+    while (curr) {
+        actualTop += curr.offsetTop || 0;
+        curr = curr.offsetParent;
+    }
+    const targetY = Math.max(0, actualTop - navHeight - 14);
+
     window.scrollTo({
-        top: Math.max(0, targetY),
+        top: targetY,
         behavior: 'smooth'
     });
 }
@@ -775,11 +805,17 @@ function restoreListPosition() {
     if (targetEl) {
         const navHeader = document.querySelector('header');
         const navHeight = navHeader ? navHeader.offsetHeight : 80;
-        const rect = targetEl.getBoundingClientRect();
-        const targetY = rect.top + window.pageYOffset - navHeight - 16;
+
+        let actualTop = 0;
+        let curr = targetEl;
+        while (curr) {
+            actualTop += curr.offsetTop || 0;
+            curr = curr.offsetParent;
+        }
+        const targetY = Math.max(0, actualTop - navHeight - 16);
 
         window.scrollTo({
-            top: Math.max(0, targetY),
+            top: targetY,
             behavior: 'smooth'
         });
 
@@ -804,6 +840,9 @@ function restoreListPosition() {
 }
 
 function toggleView() {
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
     if (currentView === 'list') {
         switchView('map');
         setTimeout(scrollToLocations, 60);
