@@ -28,6 +28,7 @@ let activePopupLocId = null;
 let lastFocusedBuildingId = null;
 let lastFocusedSource = null; // 'hero' | 'grid'
 let lastListScrollY = null;
+let sharedBuildingId = null; // ID อาคารที่เปิดมาจากลิงก์แชร์ (?bldg=X หรือ ?id=X)
 
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
@@ -113,8 +114,84 @@ function trackMapsClick(buildingName, isHero = false) {
 }
 
 // ==========================================
-// 3. CONTINUOUS REAL-TIME GPS TRACKING
+// 3. CONTINUOUS REAL-TIME GPS TRACKING & FILTERING
 // ==========================================
+let lastGpsTimestamp = 0;
+let consecutiveRejectedCount = 0;
+const MAX_CONSECUTIVE_REJECTIONS = 4; // Fail-safe: หากปฏิเสธติดกัน 4 ครั้ง จะยอมรับพิกัดใหม่เพื่อป้องกันตำแหน่งค้าง
+
+/**
+ * กรองสัญญาณกระโดด (GPS Drift & Spike Filter) และเกลี่ยพิกัดให้นุ่มนวลเมื่ออยู่ในอาคาร
+ */
+function filterIncomingPosition(rawLat, rawLng, rawAccuracy, timestamp = Date.now()) {
+    // 1. Initial Fix (ครั้งแรกที่เพิ่งรับสัญญาณ)
+    if (!userLocation.hasRealGPS) {
+        // หากสัญญาณครั้งแรกแย่เกินไป (> 250 ม. เช่น เสาสัญญาณมือถือทางไกล) ให้รอสัญญาณที่ดีกว่า
+        if (rawAccuracy > 250) {
+            console.warn(`[GPS Filter] Initial fix ignored due to high uncertainty: ${rawAccuracy}m`);
+            return { lat: rawLat, lng: rawLng, accuracy: rawAccuracy, accepted: false };
+        }
+        consecutiveRejectedCount = 0;
+        lastGpsTimestamp = timestamp;
+        return { lat: rawLat, lng: rawLng, accuracy: rawAccuracy, accepted: true };
+    }
+
+    const prevLat = userLocation.lat;
+    const prevLng = userLocation.lng;
+    const prevAccuracy = userLocation.accuracy || 20;
+
+    // คำนวณระยะขจัดและความเร็วเสมือนจากการอัปเดตล่าสุด
+    const deltaDist = calculateDistanceInMeters(prevLat, prevLng, rawLat, rawLng);
+    const deltaTime = Math.max(0.5, (timestamp - lastGpsTimestamp) / 1000); // วินาที
+    const apparentSpeed = deltaDist / deltaTime; // เมตร/วินาที
+
+    // 2. ตรวจจับการกระโดดผิดปกติ (Indoor Glitch / Wi-Fi Hop)
+    // ความเร็วคนเดินปกติ ~1.2 ม./วิ, วิ่งในตึก ~3-4 ม./วิ
+    // หากกระโดด > 25 เมตร ด้วยความเร็วเกิน 7 ม./วิ (> 25 กม./ชม.) ขณะที่ accuracy ไม่นิ่ง (> 30 ม.)
+    const isSpeedAnomaly = (deltaDist > 25 && apparentSpeed > 7 && rawAccuracy > 30);
+    // หาก accuracy เสื่อมลงอย่างรุนแรง (> 120 ม.) จากเดิมที่เคยจับได้แม่นยำ
+    const isSevereAccuracyDegrade = (rawAccuracy > 120 && prevAccuracy <= 50);
+
+    if ((isSpeedAnomaly || isSevereAccuracyDegrade) && consecutiveRejectedCount < MAX_CONSECUTIVE_REJECTIONS) {
+        consecutiveRejectedCount++;
+        console.warn(`[GPS Filter] Drift spike ignored: dist=${deltaDist}m, speed=${apparentSpeed.toFixed(1)}m/s, acc=${rawAccuracy}m (rejected ${consecutiveRejectedCount}/${MAX_CONSECUTIVE_REJECTIONS})`);
+        return { lat: prevLat, lng: prevLng, accuracy: prevAccuracy, accepted: false };
+    }
+
+    // ผ่านการตรวจสอบ: รีเซ็ตตัวนับการปฏิเสธ
+    consecutiveRejectedCount = 0;
+    lastGpsTimestamp = timestamp;
+
+    // 3. Dynamic Smoothing (EMA / Low-pass Filter)
+    // นอกอาคารฟ้าเปิด (acc <= 15 ม.): เกาะพิกัดจริงรวดเร็ว (alpha 0.8)
+    // ในอาคารที่มี Wi-Fi (acc <= 40 ม.): เกลี่ยอย่างสมดุล (alpha 0.5)
+    // ในอาคารอับสัญญาณ (acc > 40 ม.): เกลี่ยแน่นหนาเพื่อลดการสั่น (alpha 0.25)
+    let alpha = 0.5;
+    if (rawAccuracy <= 15) {
+        alpha = 0.8;
+    } else if (rawAccuracy <= 40) {
+        alpha = 0.5;
+    } else {
+        alpha = 0.25;
+    }
+
+    // Micro-jitter Deadzone:
+    // หากขยับตัวไม่ถึง 3.5 เมตร และความเร็วต่ำมาก ให้คงที่หรือเกลี่ยเบามาก (alpha 0.1) เพื่อขจัดอาการหมุดสั่นขณะยืนเฉยๆ ในห้อง
+    if (deltaDist < 3.5 && apparentSpeed < 0.8) {
+        alpha = 0.1;
+    }
+
+    const smoothLat = prevLat * (1 - alpha) + rawLat * alpha;
+    const smoothLng = prevLng * (1 - alpha) + rawLng * alpha;
+
+    return {
+        lat: smoothLat,
+        lng: smoothLng,
+        accuracy: rawAccuracy,
+        accepted: true
+    };
+}
+
 function startLiveTracking() {
     if (!navigator.geolocation) {
         showGPSAlertBanner('เบราว์เซอร์ไม่รองรับ GPS', 'อุปกรณ์นี้ไม่รองรับระบบตรวจจับตำแหน่ง');
@@ -124,8 +201,8 @@ function startLiveTracking() {
 
     const geoOptions = {
         enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 12000
+        maximumAge: 2000,
+        timeout: 15000
     };
 
     if (watchId !== null) {
@@ -141,15 +218,22 @@ function startLiveTracking() {
 }
 
 function onPositionSuccess(position) {
-    const realLat = position.coords.latitude;
-    const realLng = position.coords.longitude;
-    const accuracy = Math.round(position.coords.accuracy || 0);
+    const rawLat = position.coords.latitude;
+    const rawLng = position.coords.longitude;
+    const rawAccuracy = Math.round(position.coords.accuracy || 0);
+    const timestamp = position.timestamp || Date.now();
+
+    // กรองและเกลี่ยพิกัดเพื่อป้องกันอาการกระโดดในอาคาร
+    const filtered = filterIncomingPosition(rawLat, rawLng, rawAccuracy, timestamp);
+    if (!filtered.accepted) {
+        return;
+    }
 
     const isFirstFix = !userLocation.hasRealGPS;
 
-    userLocation.lat = realLat;
-    userLocation.lng = realLng;
-    userLocation.accuracy = accuracy;
+    userLocation.lat = filtered.lat;
+    userLocation.lng = filtered.lng;
+    userLocation.accuracy = filtered.accuracy;
     userLocation.hasRealGPS = true;
 
     hideGPSAlertBanner();
@@ -157,7 +241,7 @@ function onPositionSuccess(position) {
     if (isFirstFix) {
         showToast("🛰️ จับสัญญาณ GPS สำเร็จ!", "ระบบกำลังคำนวณและเรียงจุดแตะบัตรตามระยะจริง");
         if (typeof gtag === 'function') {
-            gtag('event', 'gps_connected', { accuracy_meters: accuracy });
+            gtag('event', 'gps_connected', { accuracy_meters: filtered.accuracy });
         }
         if (currentView === 'map' && leafletMap && !activePopupLocId) {
             focusMapOnProximity();
@@ -310,9 +394,8 @@ function recalculateAndRender() {
         );
     });
 
-    // 2. Identify current nearest spot
-    const sortedByNearest = [...locationsData].sort((a, b) => a.distanceMeters - b.distanceMeters);
-    const nearestSpot = sortedByNearest[0];
+    // 2. Identify current nearest spot with Hysteresis
+    const nearestSpot = getNearestLocation();
 
     // 3. Render Hero card (closest building)
     renderNearestHero(nearestSpot);
@@ -347,7 +430,7 @@ function renderNearestHero(spot) {
     lastKnownHeroId = spot.id;
 
     container.innerHTML = `
-        <div class="card-neo bg-gradient-to-br from-pop-yellow via-[#FFE082] to-pop-mint/40 rounded-3xl p-4 sm:p-6 relative overflow-hidden transition-all duration-300">
+        <div class="card-neo bg-gradient-to-br from-pop-yellow via-[#FFE082] to-pop-mint/40 rounded-3xl p-4 sm:p-6 relative overflow-hidden transition-all duration-300 cursor-pointer" onclick="copyBuildingLink(${spot.id}, event)" title="คลิกเพื่อคัดลอกลิงก์จุดแตะบัตร">
             <!-- Decorative background sticker -->
             <div class="hidden sm:flex absolute -right-6 -bottom-6 w-36 h-36 rounded-full bg-white/30 border-2 border-pop-dark/10 items-center justify-center pointer-events-none"></div>
 
@@ -442,8 +525,13 @@ function handleSearchAndFilter(updateMapPins = true) {
     if (sortMode === 'name-asc') {
         filtered.sort((a, b) => a.name.localeCompare(b.name, 'th'));
     } else {
-        // distance-asc or walkable
-        filtered.sort((a, b) => a.distanceMeters - b.distanceMeters);
+        // distance-asc or walkable (หน่วงตึกอันดับ #1 ด้วยบัฟเฟอร์ เพื่อไม่ให้อันดับสลับไปมาเมื่อยืนในอาคาร)
+        const stableNearestId = getNearestLocation()?.id;
+        filtered.sort((a, b) => {
+            const distA = (a.id === stableNearestId) ? a.distanceMeters - 7.9 : a.distanceMeters;
+            const distB = (b.id === stableNearestId) ? b.distanceMeters - 7.9 : b.distanceMeters;
+            return distA - distB;
+        });
     }
 
     renderLocationsGrid(filtered);
@@ -501,7 +589,7 @@ function renderLocationsGrid(list) {
             : 'กำลังคำนวณ...';
 
         return `
-            <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300" data-id="${loc.id}">
+            <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300 cursor-pointer" data-id="${loc.id}" onclick="copyBuildingLink(${loc.id}, event)" title="คลิกเพื่อคัดลอกลิงก์จุดแตะบัตร">
                 <!-- Top Image with Slideshow & Badges -->
                 <div>
                     <div class="relative h-48 w-full bg-slate-100 border-b-[3px] border-pop-dark overflow-hidden group">
@@ -579,6 +667,11 @@ function renderLocationsGrid(list) {
 function clearSearch() {
     const input = document.getElementById('searchInput');
     if (input) input.value = '';
+    sharedBuildingId = null;
+    if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState(null, '', cleanUrl);
+    }
     handleSearchAndFilter();
 }
 
@@ -587,7 +680,124 @@ function resetAllFilters() {
     const sortSelect = document.getElementById('sortSelect');
     if (input) input.value = '';
     if (sortSelect) sortSelect.value = 'distance-asc';
+    sharedBuildingId = null;
+    if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState(null, '', cleanUrl);
+    }
     handleSearchAndFilter();
+}
+
+// ==========================================
+// 6.1 SHARE & DEEP LINK HELPERS
+// ==========================================
+function getBuildingShareUrl(buildingId) {
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set('bldg', buildingId);
+    return url.toString();
+}
+
+async function copyBuildingLink(buildingId, event = null) {
+    // ป้องกันการคัดลอกลิงก์ซ้ำซ้อน หากผู้ใช้ตั้งใจคลิกปุ่มนำทาง Google Maps หรือปุ่มดูแผนที่
+    if (event && event.target && event.target.closest('a, button, input, select, label')) {
+        return;
+    }
+
+    const loc = locationsData.find(l => l.id === Number(buildingId));
+    if (!loc) return;
+
+    const shareUrl = getBuildingShareUrl(loc.id);
+    let copied = false;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            copied = true;
+        } catch (err) {
+            console.warn('Clipboard API writeText failed, trying fallback:', err);
+        }
+    }
+
+    if (!copied) {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = shareUrl;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "-9999px";
+            textArea.setAttribute("readonly", "");
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            copied = document.execCommand('copy');
+            document.body.removeChild(textArea);
+        } catch (err2) {
+            console.warn('Fallback execCommand copy failed:', err2);
+        }
+    }
+
+    if (copied) {
+        showToast("คัดลอกลิงก์แล้ว!", `${loc.name}`, "🔗");
+        if (typeof gtag === 'function') {
+            gtag('event', 'share_building_link', {
+                building_id: loc.id,
+                building_name: loc.name
+            });
+        }
+    } else {
+        showToast("⚠️ ไม่สามารถคัดลอกอัตโนมัติ", "กรุณาลองใหม่อีกครั้ง");
+    }
+}
+
+function handleSharedBuildingParam() {
+    const params = new URLSearchParams(window.location.search);
+    const bldgId = params.get('bldg') || params.get('id');
+    if (!bldgId) return;
+
+    const loc = locationsData.find(l => l.id === Number(bldgId));
+    if (!loc) return;
+
+    // บันทึก ID อาคารที่เปิดมาจากลิงก์แชร์ เพื่อนำไปเปิด Popup บนแผนที่เมื่อผู้ใช้สลับไปดูแผนที่
+    sharedBuildingId = loc.id;
+
+    const searchInput = document.getElementById('searchInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const sortSelect = document.getElementById('sortSelect');
+
+    if (searchInput) {
+        searchInput.value = loc.name;
+    }
+    if (clearBtn) {
+        clearBtn.classList.remove('hidden');
+    }
+    if (sortSelect) {
+        sortSelect.value = 'distance-asc';
+    }
+
+    // กรองการแสดงผลให้เหลือเฉพาะตึกที่ได้รับลิงก์แชร์มา
+    handleSearchAndFilter(true);
+
+    // เลื่อนหน้าจอลงมาโฟกัสที่การ์ดตึกที่แชร์มาทันที (หลบการ์ดตึกใกล้สุดด้านบน)
+    setTimeout(() => {
+        const headerEl = document.getElementById('locationsHeaderBar');
+        const cardEl = document.querySelector(`article[data-id="${loc.id}"]`);
+        const targetEl = headerEl || cardEl;
+        if (targetEl) {
+            let actualTop = 0;
+            let curr = targetEl;
+            while (curr) {
+                actualTop += curr.offsetTop || 0;
+                curr = curr.offsetParent;
+            }
+            const navHeader = document.querySelector('header');
+            const navHeight = navHeader ? navHeader.offsetHeight : 80;
+            const targetY = Math.max(0, actualTop - navHeight - 14);
+            window.scrollTo({
+                top: targetY,
+                behavior: 'smooth'
+            });
+        }
+    }, 150);
 }
 
 let toastTimeout;
@@ -649,7 +859,23 @@ function isInsideSirirajHospital(loc) {
 
 function getNearestLocation() {
     if (!locationsData || locationsData.length === 0) return null;
-    return [...locationsData].sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity))[0];
+    const sorted = [...locationsData].sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
+    const closest = sorted[0];
+
+    // Hysteresis stabilization:
+    // หากมีตึกใกล้สุดเดิมอยู่แล้ว (lastKnownHeroId) ตึกใหม่จะต้องใกล้กว่าตึกเดิมอย่างน้อย 8 เมตร
+    // จึงจะสลับเป็นตึกใหม่ เพื่อป้องกันอาการตึกสลับไปมาแบบกะพริบถี่ๆ ขณะยืนอยู่ในอาคาร
+    if (lastKnownHeroId && closest && closest.id !== lastKnownHeroId) {
+        const currentHero = locationsData.find(l => l.id === lastKnownHeroId);
+        if (currentHero) {
+            const HYSTERESIS_BUFFER_METERS = 8;
+            if ((currentHero.distanceMeters ?? Infinity) - (closest.distanceMeters ?? Infinity) < HYSTERESIS_BUFFER_METERS) {
+                return currentHero;
+            }
+        }
+    }
+
+    return closest;
 }
 
 function getLocalClusterLocations() {
@@ -667,12 +893,21 @@ function getLocalClusterLocations() {
 
 function focusMapOnProximity() {
     if (!leafletMap) return;
+
+    // หากมีการค้นหา/กรองเหลือจุดเดียว ให้โฟกัสไปที่จุดนั้น
+    const query = (document.getElementById('searchInput')?.value || '').trim();
+    if (query && leafletMarkers.length === 1 && leafletMarkers[0]._locationData) {
+        const loc = leafletMarkers[0]._locationData;
+        leafletMap.setView([loc.lat, loc.lng], 17, { animate: true });
+        return;
+    }
+
     const nearest = getNearestLocation();
-    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 3000) {
-        // User is near a specific building / campus: focus on user at detailed street zoom
-        leafletMap.setView([userLocation.lat, userLocation.lng], 17, { animate: true });
+    if (nearest && nearest.lat != null && nearest.lng != null) {
+        // โฟกัสไปที่สถานที่/จุดแตะบัตรที่ใกล้ที่สุดบนแผนที่เสมอ (ไม่โฟกัสตำแหน่งผู้ใช้ เพื่อให้เห็นจุดแตะบัตรชัดเจน)
+        leafletMap.setView([nearest.lat, nearest.lng], 17, { animate: true });
     } else {
-        // User is remote (> 3 km) or no GPS: default to Siriraj Hospital center
+        // Fallback กรณีไม่มีข้อมูลจุดแตะบัตร ให้เล็งไปที่ รพ.ศิริราช
         leafletMap.setView([SIRIRAJ_MAIN_LAT, SIRIRAJ_MAIN_LNG], 17, { animate: true });
     }
 }
@@ -730,14 +965,19 @@ function switchView(viewMode, skipProximity = false) {
         if (floatIcon) floatIcon.className = "ph-bold ph-list-dashes text-lg";
         if (floatText) floatText.textContent = "ดูรายการ";
 
-        // เมื่อสลับมาดูแผนที่จากแท็บหรือปุ่มลอย (ไม่ใช่กดเจาะจงมาจากปุ่มบนการ์ด)
-        // ให้ล้างค่าตึกที่เคยโฟกัส ปิด Popup และคืนค่ามุมมองภาพรวม
+        // เมื่อสลับมาดูแผนที่จากแท็บหรือปุ่มลอย
         if (!skipProximity) {
-            activePopupLocId = null;
-            lastFocusedBuildingId = null;
-            lastFocusedSource = null;
-            if (leafletMap) {
-                leafletMap.closePopup();
+            if (sharedBuildingId) {
+                // หากเปิดมาจากลิงก์แชร์ตึก ให้คงค่าตึกที่แชร์ไว้ เพื่อเปิด Popup อัตโนมัติ
+                lastFocusedBuildingId = sharedBuildingId;
+                activePopupLocId = sharedBuildingId;
+            } else {
+                activePopupLocId = null;
+                lastFocusedBuildingId = null;
+                lastFocusedSource = null;
+                if (leafletMap) {
+                    leafletMap.closePopup();
+                }
             }
         }
 
@@ -748,6 +988,21 @@ function switchView(viewMode, skipProximity = false) {
             setTimeout(() => {
                 leafletMap.invalidateSize();
                 if (!skipProximity) {
+                    if (sharedBuildingId) {
+                        const targetLoc = locationsData.find(l => l.id === sharedBuildingId);
+                        if (targetLoc && targetLoc.lat != null && targetLoc.lng != null) {
+                            renderLeafletPins(locationsData); // แสดงทุกตึกเพื่อให้เห็น "ในดงตึกอื่นๆ"
+                            const targetLat = targetLoc.lat + 0.00035;
+                            leafletMap.setView([targetLat, targetLoc.lng], 18, { animate: true });
+                            activePopupLocId = targetLoc.id;
+                            setTimeout(() => {
+                                const marker = leafletMarkers.find(m => m._locationData && m._locationData.id === targetLoc.id);
+                                if (marker) marker.openPopup();
+                            }, 250);
+                            updateOverviewButtonUI(false);
+                            return;
+                        }
+                    }
                     leafletMap.closePopup();
                     focusMapOnProximity();
                     updateOverviewButtonUI(false);
@@ -947,16 +1202,33 @@ function initLeafletMap() {
     const mapElement = document.getElementById('sirirajMap');
     if (!mapElement) return;
 
-    // Smart Initial Center: If user is within 3 km of a campus, start there; otherwise start at Siriraj Hospital
+    // Smart Initial Center: หากเปิดมาจากลิงก์แชร์ตึก ให้เริ่มที่ตึกนั้นพร้อมระดับซูมใกล้ 18
     let initialCenter = [SIRIRAJ_MAIN_LAT, SIRIRAJ_MAIN_LNG];
-    const nearest = getNearestLocation();
-    if (userLocation.hasRealGPS && nearest && nearest.distanceMeters <= 3000) {
-        initialCenter = [userLocation.lat, userLocation.lng];
+    let initialZoom = 17;
+    if (sharedBuildingId) {
+        const targetLoc = locationsData.find(l => l.id === sharedBuildingId);
+        if (targetLoc && targetLoc.lat != null && targetLoc.lng != null) {
+            initialCenter = [targetLoc.lat + 0.00035, targetLoc.lng];
+            initialZoom = 18;
+        }
+    } else {
+        const query = (document.getElementById('searchInput')?.value || '').trim();
+        if (query) {
+            const matched = locationsData.find(l => l.name.toLowerCase().includes(query.toLowerCase()));
+            if (matched && matched.lat != null && matched.lng != null) {
+                initialCenter = [matched.lat, matched.lng];
+            }
+        } else {
+            const nearest = getNearestLocation();
+            if (nearest && nearest.lat != null && nearest.lng != null) {
+                initialCenter = [nearest.lat, nearest.lng];
+            }
+        }
     }
 
     leafletMap = L.map('sirirajMap', {
         center: initialCenter,
-        zoom: 17,
+        zoom: initialZoom,
         zoomControl: true,
         attributionControl: true,
         closePopupOnClick: false // ป้องกันการแตะโดนหน้าจอแผนที่แล้วป๊อปอัปหลุดหายบนมือถือ
@@ -985,10 +1257,23 @@ function initLeafletMap() {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank" rel="noopener noreferrer">HOT</a>'
     }).addTo(leafletMap);
 
-    renderLeafletPins();
+    renderLeafletPins(locationsData);
 
     if (userLocation.hasRealGPS) {
         updateUserLeafletPosition();
+    }
+
+    // หากเปิดมาจากลิงก์แชร์ตึก ให้เปิดป๊อปอัปของตึกนั้นขึ้นมาทันทีท่ามกลางดงตึกอื่นๆ
+    if (sharedBuildingId) {
+        const targetLoc = locationsData.find(l => l.id === sharedBuildingId);
+        if (targetLoc) {
+            activePopupLocId = targetLoc.id;
+            lastFocusedBuildingId = targetLoc.id;
+            setTimeout(() => {
+                const marker = leafletMarkers.find(m => m._locationData && m._locationData.id === targetLoc.id);
+                if (marker) marker.openPopup();
+            }, 300);
+        }
     }
 
     // Leaflet needs invalidateSize once container is visible
@@ -1239,7 +1524,9 @@ function fitAllBuildingPins() {
 
         if (userLocation.hasRealGPS && userLeafletMarker) {
             const nearest = getNearestLocation();
-            if (nearest && nearest.distanceMeters <= 3000) {
+            // นำหมุดตำแหน่งผู้ใช้มารวมจัดเฟรมเฉพาะเมื่ออยู่ในระยะเดินเท้าใกล้ รพ. (<= 500 ม.)
+            // เพื่อไม่ให้ดึงเฟรมแผนที่ซูมออกกว้างเกินไปเมื่อผู้ใช้อยู่นอกพื้นที่ เช่น นั่งรถอยู่ 2-3 กม.
+            if (nearest && nearest.distanceMeters <= 500) {
                 group.addLayer(userLeafletMarker);
             }
         }
@@ -1306,4 +1593,5 @@ window.onload = function () {
     startLiveTracking();     // Continuous real-time GPS tracking
     startSlideshowTimer();   // Continuous automatic slideshow between image1 & image2
     adjustFloatingButtonPosition();
+    handleSharedBuildingParam(); // Scroll to building if ?bldg=X or ?id=X is present in URL
 };

@@ -81,6 +81,10 @@ body {
     transform: translateY(-4px);
     box-shadow: 8px 8px 0px 0px #1E1B2E;
 }
+.card-neo:active {
+    transform: translateY(1px);
+    box-shadow: 2px 2px 0px 0px #1E1B2E;
+}
 
 .badge-neo {
     border: 2px solid #1E1B2E;
