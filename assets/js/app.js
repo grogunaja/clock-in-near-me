@@ -688,6 +688,30 @@ function resetAllFilters() {
     handleSearchAndFilter();
 }
 
+/**
+ * Reset to initial Home state: clears search, reset sort, switch to list view, and smooth scroll to top
+ */
+function resetToHome() {
+    // 1. Dismiss mobile virtual keyboard if open
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
+
+    // 2. Reset all search input, filters, sort order and URL state
+    resetAllFilters();
+
+    // 3. If currently on Map view, switch back to List view
+    if (typeof currentView !== 'undefined' && currentView !== 'list' && typeof switchView === 'function') {
+        switchView('list');
+    }
+
+    // 4. Smoothly scroll back to the top of the page
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
 // ==========================================
 // 6.1 SHARE & DEEP LINK HELPERS
 // ==========================================
