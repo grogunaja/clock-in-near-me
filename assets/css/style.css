@@ -72,6 +72,24 @@ body {
     background-color: #FFFDF7;
 }
 
+/* Footer Feedback Button (High-contrast Neobrutalism on dark background) */
+.btn-footer-feedback {
+    background-color: #FFD166;
+    color: #1E1B2E;
+    border: 2.5px solid #FFFFFF;
+    box-shadow: 3px 3px 0px 0px #FFFFFF;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-footer-feedback:hover {
+    background-color: #ffc63b;
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0px 0px #FFFFFF;
+}
+.btn-footer-feedback:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px 0px #FFFFFF;
+}
+
 .card-neo {
     border: 3px solid #1E1B2E;
     box-shadow: 5px 5px 0px 0px #1E1B2E;

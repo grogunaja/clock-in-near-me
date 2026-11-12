@@ -301,7 +301,7 @@ function getSlideHTML(loc, isHero = false) {
                 src="${img1 || img2 || fallback}" 
                 alt="${loc.name}" 
                 onerror="this.src='${fallback}'"
-                class="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                class="w-full h-full object-cover"
             >
         `;
     }
@@ -623,7 +623,7 @@ function renderLocationsGrid(list) {
 
                         <!-- Building Name & Scan Location (Tightly grouped) -->
                         <div class="space-y-0.5">
-                            <h3 class="font-display text-lg font-semibold text-pop-dark leading-snug line-clamp-1" title="${loc.name}">
+                            <h3 class="font-display text-lg font-semibold text-pop-dark leading-snug" title="${loc.name}">
                                 ${loc.name}
                             </h3>
 
