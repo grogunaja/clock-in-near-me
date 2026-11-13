@@ -287,18 +287,42 @@ body {
 }
 
 .pin-svg-wrapper {
+    transform: translate(-50%, -100%);
     transform-origin: 50% 100%;
-    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.28s ease;
-    will-change: transform, filter;
+    transition: width 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                height 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                filter 0.28s ease;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
-/* เมื่อหมุดถูกคลิกเลือกเพื่อดูชื่อตึก (ขยายใหญ่ขึ้น ลอยเด่นเหนือหมุดอื่น) */
+/* ขนาดปกติ (เวกเตอร์คมชัดระดับพิกเซล ไม่เบลอ) */
+.pin-svg-wrapper.pin-normal {
+    width: 40px;
+    height: 50px;
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.2));
+}
+
+.pin-svg-wrapper.pin-nearest {
+    width: 48px;
+    height: 58px;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
+}
+
+/* เมื่อหมุดถูกคลิกเลือกเพื่อดูชื่อตึก (ขยายใหญ่แบบเวกเตอร์แท้ 100% คมกริบ ไม่แตก ไม่เบลอ) */
 .custom-leaflet-marker.pin-selected {
     z-index: 10000 !important;
 }
 
-.custom-leaflet-marker.pin-selected .pin-svg-wrapper {
-    transform: translate(-50%, -100%) scale(1.32) !important;
+.custom-leaflet-marker.pin-selected .pin-svg-wrapper.pin-normal {
+    width: 54px !important;
+    height: 68px !important;
+    filter: drop-shadow(0 10px 18px rgba(30, 27, 46, 0.45)) !important;
+}
+
+.custom-leaflet-marker.pin-selected .pin-svg-wrapper.pin-nearest {
+    width: 64px !important;
+    height: 78px !important;
     filter: drop-shadow(0 10px 18px rgba(30, 27, 46, 0.45)) !important;
 }
 

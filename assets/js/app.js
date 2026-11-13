@@ -1418,16 +1418,16 @@ function initLeafletMap() {
 
 function createPinDivIcon(isNearest, isSelected = false) {
     const iconHtml = isNearest ? `
-        <div class="pin-svg-wrapper" style="width:48px;height:58px;transform:translate(-50%, -100%);filter:drop-shadow(0 4px 6px rgba(0,0,0,0.25));cursor:pointer;">
-            <svg width="48" height="58" viewBox="0 0 48 58">
+        <div class="pin-svg-wrapper pin-nearest" style="cursor:pointer;">
+            <svg width="100%" height="100%" viewBox="0 0 48 58" style="display:block;">
                 <path d="M24 2C12.95 2 4 10.95 4 22c0 14.2 18.2 30.5 19 31.2a1.5 1.5 0 0 0 2 0C25.8 52.5 44 36.2 44 22 44 10.95 35.05 2 24 2z" fill="#FF5D8F" stroke="#1E1B2E" stroke-width="2.5"/>
                 <circle cx="24" cy="21" r="13" fill="#FFFFFF" stroke="#1E1B2E" stroke-width="1.5"/>
                 <text x="24" y="27" font-size="15" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">🔥</text>
             </svg>
         </div>
     ` : `
-        <div class="pin-svg-wrapper" style="width:40px;height:50px;transform:translate(-50%, -100%);filter:drop-shadow(0 3px 5px rgba(0,0,0,0.2));cursor:pointer;">
-            <svg width="40" height="50" viewBox="0 0 40 50">
+        <div class="pin-svg-wrapper pin-normal" style="cursor:pointer;">
+            <svg width="100%" height="100%" viewBox="0 0 40 50" style="display:block;">
                 <path d="M20 2C10.6 2 3 9.6 3 19c0 12.2 15.5 26.2 16.2 26.8a1.3 1.3 0 0 0 1.6 0C21.5 45.2 37 31.2 37 19 37 9.6 29.4 2 20 2z" fill="#FFB703" stroke="#1E1B2E" stroke-width="2.5"/>
                 <circle cx="20" cy="18" r="11" fill="#FFFFFF" stroke="#1E1B2E" stroke-width="1.5"/>
                 <text x="20" y="23" font-size="13" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif">📍</text>
@@ -1439,7 +1439,7 @@ function createPinDivIcon(isNearest, isSelected = false) {
         className: `custom-leaflet-marker ${isSelected ? 'pin-selected' : ''}`,
         html: iconHtml,
         iconSize: [0, 0],
-        popupAnchor: [0, isNearest ? -80 : -70]
+        popupAnchor: [0, isNearest ? -82 : -72]
     });
 }
 
