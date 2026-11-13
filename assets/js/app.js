@@ -28,7 +28,7 @@ let activePopupLocId = null;
 let lastFocusedBuildingId = null;
 let lastFocusedSource = null; // 'hero' | 'grid'
 let lastListScrollY = null;
-let sharedBuildingId = null; // ID อาคารที่เปิดมาจากลิงก์แชร์ (?bldg=X หรือ ?id=X)
+let sharedBuildingId = null; // ID อาคารที่เปิดมาจากลิงก์แชร์ (?id=X หรือ ?bldg=X)
 
 // ==========================================
 // 2. HAVERSINE DISTANCE CALCULATION (IN METERS)
@@ -836,7 +836,7 @@ function resetToHome() {
 // ==========================================
 function getBuildingShareUrl(buildingId) {
     const url = new URL(window.location.origin + window.location.pathname);
-    url.searchParams.set('bldg', buildingId);
+    url.searchParams.set('id', buildingId);
     return url.toString();
 }
 
@@ -894,7 +894,7 @@ async function copyBuildingLink(buildingId, event = null) {
 
 function handleSharedBuildingParam() {
     const params = new URLSearchParams(window.location.search);
-    const bldgId = params.get('bldg') || params.get('id');
+    const bldgId = params.get('id') || params.get('bldg');
     if (!bldgId) return;
 
     const loc = locationsData.find(l => l.id === Number(bldgId));
@@ -1380,6 +1380,11 @@ function initLeafletMap() {
         updateOverviewButtonUI(leafletMap.getZoom() <= 13);
     });
 
+    // รีเซ็ตขนาดหมุดกลับเป็นขนาดปกติเมื่อป๊อปอัปปิด
+    leafletMap.on('popupclose', () => {
+        clearAllPinSelectedClasses();
+    });
+
     // OpenStreetMap Standard
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -1411,7 +1416,7 @@ function initLeafletMap() {
     }, 200);
 }
 
-function createPinDivIcon(isNearest) {
+function createPinDivIcon(isNearest, isSelected = false) {
     const iconHtml = isNearest ? `
         <div class="pin-svg-wrapper" style="width:48px;height:58px;transform:translate(-50%, -100%);filter:drop-shadow(0 4px 6px rgba(0,0,0,0.25));cursor:pointer;">
             <svg width="48" height="58" viewBox="0 0 48 58">
@@ -1431,10 +1436,19 @@ function createPinDivIcon(isNearest) {
     `;
 
     return L.divIcon({
-        className: 'custom-leaflet-marker',
+        className: `custom-leaflet-marker ${isSelected ? 'pin-selected' : ''}`,
         html: iconHtml,
         iconSize: [0, 0],
-        popupAnchor: [0, isNearest ? -56 : -48]
+        popupAnchor: [0, isNearest ? -80 : -70]
+    });
+}
+
+function clearAllPinSelectedClasses() {
+    if (!leafletMarkers) return;
+    leafletMarkers.forEach(m => {
+        const el = m.getElement();
+        if (el) el.classList.remove('pin-selected');
+        m.setZIndexOffset(m._isNearest ? 1000 : 100);
     });
 }
 
@@ -1454,10 +1468,11 @@ function renderLeafletPins(filterList = null) {
         if (loc.lat == null || loc.lng == null) return;
 
         const isNearest = (loc.id === overallNearestId);
+        const isSelected = (loc.id === activePopupLocId);
         const marker = L.marker([loc.lat, loc.lng], {
-            icon: createPinDivIcon(isNearest),
+            icon: createPinDivIcon(isNearest, isSelected),
             title: loc.name,
-            zIndexOffset: isNearest ? 1000 : 100
+            zIndexOffset: isSelected ? 10000 : (isNearest ? 1000 : 100)
         }).addTo(leafletMap);
         marker._isNearest = isNearest;
 
@@ -1504,11 +1519,18 @@ function renderLeafletPins(filterList = null) {
 
         marker.on('popupopen', () => {
             activePopupLocId = loc.id;
+            clearAllPinSelectedClasses();
+            const el = marker.getElement();
+            if (el) el.classList.add('pin-selected');
+            marker.setZIndexOffset(10000);
         });
         marker.on('popupclose', () => {
             if (activePopupLocId === loc.id) {
                 activePopupLocId = null;
             }
+            const el = marker.getElement();
+            if (el) el.classList.remove('pin-selected');
+            marker.setZIndexOffset(marker._isNearest ? 1000 : 100);
         });
 
         marker._locationData = loc;
@@ -1549,10 +1571,11 @@ function updateLeafletPinsRealtime() {
 
         // 1. สลับสไตล์หมุด (Pin DivIcon) เมื่อเปลี่ยนตึกใกล้ที่สุด
         const isNearest = (loc.id === overallNearestId);
+        const isSelected = (loc.id === activePopupLocId);
         if (marker._isNearest !== isNearest) {
             marker._isNearest = isNearest;
-            marker.setIcon(createPinDivIcon(isNearest));
-            marker.setZIndexOffset(isNearest ? 1000 : 100);
+            marker.setIcon(createPinDivIcon(isNearest, isSelected));
+            marker.setZIndexOffset(isSelected ? 10000 : (isNearest ? 1000 : 100));
         }
 
         // 2. คำนวณระยะทางและไอคอนล่าสุด
@@ -1812,5 +1835,5 @@ window.onload = function () {
     startLiveTracking();     // Continuous real-time GPS tracking
     startSlideshowTimer();   // Continuous automatic slideshow between image1 & image2
     adjustFloatingButtonPosition();
-    handleSharedBuildingParam(); // Scroll to building if ?bldg=X or ?id=X is present in URL
+    handleSharedBuildingParam(); // Scroll to building if ?id=X or ?bldg=X is present in URL
 };
