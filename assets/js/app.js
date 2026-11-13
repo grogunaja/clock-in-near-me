@@ -69,8 +69,25 @@ function getWalkingTimeText(meters) {
     const mins = Math.ceil(meters / 80);
     if (mins <= 15) return `🚶 เดิน ~${mins} นาที`;
     
-    // Calculate vehicle travel time (~27 km/h urban traffic speed)
-    const driveMins = Math.max(2, Math.ceil(meters / 450));
+    // คำนวณเวลาเดินทางด้วยรถยนต์ตามสภาพจราจรจริงแบบ 3 ระดับ (Tiered Urban Traffic Model):
+    // 1. โซนคอขวดศิริราช (<= 2,500 ม.): ถนนแคบ รถติดสะสมหน้า รพ. ไฟแดงพรานนก/อรุณอมรินทร์
+    // 2. โซนเมืองชั้นกลาง (2,500 - 12,000 ม. เช่น บางแค, เจริญนคร, ราชพฤกษ์): ถนนใหญ่ผสมแยกไฟแดง
+    // 3. โซนไฮเวย์/นอกเมือง (> 12,000 ม. เช่น สาย 3, สมุทรสาคร): ถนนหลัก/ทางคู่ขนานลอยฟ้าบรมฯ
+    let driveMins;
+    if (meters <= 2500) {
+        driveMins = Math.ceil((meters * 1.35) / 220);
+    } else if (meters <= 12000) {
+        const innerMins = (2500 * 1.35) / 220; // ~15.3 นาที
+        const midMins = ((meters - 2500) * 1.30) / 450;
+        driveMins = Math.ceil(innerMins + midMins);
+    } else {
+        const innerMins = (2500 * 1.35) / 220; // ~15.3 นาที
+        const midMins = (9500 * 1.30) / 450;   // ~27.4 นาที
+        const outerMins = ((meters - 12000) * 1.20) / 900;
+        driveMins = Math.ceil(innerMins + midMins + outerMins);
+    }
+    driveMins = Math.max(3, driveMins);
+
     if (driveMins < 60) {
         return `🚗 เดินทาง ~${driveMins} นาที`;
     } else {
@@ -394,7 +411,7 @@ function recalculateAndRender() {
         );
     });
 
-    // 2. Identify current nearest spot with Hysteresis
+    // 2. Identify current nearest spot
     const nearestSpot = getNearestLocation();
 
     // 3. Render Hero card (closest building)
@@ -402,6 +419,11 @@ function recalculateAndRender() {
 
     // 4. Filter & re-sort grid cards (ข้ามการลบสร้างหมุด Leaflet ใหม่ เพื่อป้องกันป๊อปอัปหลุดหายขณะรับพิกัด GPS)
     handleSearchAndFilter(false);
+
+    // 5. Update map pins, nearest badges and popup distances in real-time
+    if (leafletMap) {
+        updateLeafletPinsRealtime();
+    }
 }
 
 function renderNearestHero(spot) {
@@ -525,13 +547,8 @@ function handleSearchAndFilter(updateMapPins = true) {
     if (sortMode === 'name-asc') {
         filtered.sort((a, b) => a.name.localeCompare(b.name, 'th'));
     } else {
-        // distance-asc or walkable (หน่วงตึกอันดับ #1 ด้วยบัฟเฟอร์ เพื่อไม่ให้อันดับสลับไปมาเมื่อยืนในอาคาร)
-        const stableNearestId = getNearestLocation()?.id;
-        filtered.sort((a, b) => {
-            const distA = (a.id === stableNearestId) ? a.distanceMeters - 7.9 : a.distanceMeters;
-            const distB = (b.id === stableNearestId) ? b.distanceMeters - 7.9 : b.distanceMeters;
-            return distA - distB;
-        });
+        // distance-asc or walkable: เรียงตามระยะทางจริงจากน้อยไปมากเสมอ เพื่อให้ตัวเลขอันดับและระยะทางสอดคล้องกัน 100%
+        filtered.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
     }
 
     renderLocationsGrid(filtered);
@@ -884,22 +901,7 @@ function isInsideSirirajHospital(loc) {
 function getNearestLocation() {
     if (!locationsData || locationsData.length === 0) return null;
     const sorted = [...locationsData].sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
-    const closest = sorted[0];
-
-    // Hysteresis stabilization:
-    // หากมีตึกใกล้สุดเดิมอยู่แล้ว (lastKnownHeroId) ตึกใหม่จะต้องใกล้กว่าตึกเดิมอย่างน้อย 8 เมตร
-    // จึงจะสลับเป็นตึกใหม่ เพื่อป้องกันอาการตึกสลับไปมาแบบกะพริบถี่ๆ ขณะยืนอยู่ในอาคาร
-    if (lastKnownHeroId && closest && closest.id !== lastKnownHeroId) {
-        const currentHero = locationsData.find(l => l.id === lastKnownHeroId);
-        if (currentHero) {
-            const HYSTERESIS_BUFFER_METERS = 8;
-            if ((currentHero.distanceMeters ?? Infinity) - (closest.distanceMeters ?? Infinity) < HYSTERESIS_BUFFER_METERS) {
-                return currentHero;
-            }
-        }
-    }
-
-    return closest;
+    return sorted[0] || null;
 }
 
 function getLocalClusterLocations() {
@@ -1009,6 +1011,7 @@ function switchView(viewMode, skipProximity = false) {
         if (!leafletMap) {
             initLeafletMap();
         } else {
+            updateLeafletPinsRealtime();
             setTimeout(() => {
                 leafletMap.invalidateSize();
                 if (!skipProximity) {
@@ -1354,6 +1357,7 @@ function renderLeafletPins(filterList = null) {
             title: loc.name,
             zIndexOffset: isNearest ? 1000 : 100
         }).addTo(leafletMap);
+        marker._isNearest = isNearest;
 
         const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.distanceMeters);
         const popupImg = loc.image1 || 'assets/images/noimage.jpg';
@@ -1370,12 +1374,13 @@ function renderLeafletPins(filterList = null) {
                     <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'">
                 </div>
                 <div class="map-popup-title">${loc.name}</div>
-                <div class="map-popup-dist">
+                <div class="map-popup-dist" id="popup-dist-${loc.id}">
                     <i class="ph-fill ${popupIcon} text-base"></i>
                     <span>${distText}</span>
                 </div>
                 <div class="map-popup-gate"><strong>จุดสแกน:</strong> ${loc.gateInfo || '-'}</div>
                 <a 
+                    id="popup-maps-${loc.id}"
                     href="${mapsUrl}" 
                     target="_blank" 
                     rel="noopener noreferrer" 
@@ -1425,6 +1430,81 @@ function renderLeafletPins(filterList = null) {
             leafletMap.flyToBounds(bounds.pad(0.2), { animate: true });
         }
     }
+}
+
+/**
+ * อัปเดตระยะทาง ลิงก์นำทาง และตราตึกใกล้สุดบนแผนที่แบบเรียลไทม์
+ * โดยไม่ต้องลบหมุดเดิมทิ้ง เพื่อป้องกันอาการป๊อปอัปหลุดหรือแผนที่กะพริบ
+ */
+function updateLeafletPinsRealtime() {
+    if (!leafletMap || !leafletMarkers || leafletMarkers.length === 0) return;
+
+    const overallNearestId = getNearestLocation()?.id;
+
+    leafletMarkers.forEach(marker => {
+        const loc = marker._locationData;
+        if (!loc) return;
+
+        // 1. สลับสไตล์หมุด (Pin DivIcon) เมื่อเปลี่ยนตึกใกล้ที่สุด
+        const isNearest = (loc.id === overallNearestId);
+        if (marker._isNearest !== isNearest) {
+            marker._isNearest = isNearest;
+            marker.setIcon(createPinDivIcon(isNearest));
+            marker.setZIndexOffset(isNearest ? 1000 : 100);
+        }
+
+        // 2. คำนวณระยะทางและไอคอนล่าสุด
+        const mapsUrl = getGoogleMapsUrl(loc.lat, loc.lng, loc.distanceMeters);
+        const popupImg = loc.image1 || 'assets/images/noimage.jpg';
+        const distText = (loc.distanceMeters !== undefined) 
+            ? (loc.distanceMeters < 1000 
+                ? `${loc.distanceMeters.toLocaleString('th-TH')} เมตร` 
+                : `${(loc.distanceMeters / 1000).toFixed(1)} กม.`)
+            : 'กำลังคำนวณ...';
+        const popupIcon = (loc.distanceMeters != null && loc.distanceMeters > 1500) ? 'ph-car' : 'ph-footprints';
+
+        // 3. หาก Popup เปิดอยู่บนจอ ณ วินาทีนั้น ให้ DOM อัปเดตตัวเลขและลิงก์ทันทีอย่างไร้อาการสะดุด
+        const distEl = document.getElementById(`popup-dist-${loc.id}`);
+        const mapsEl = document.getElementById(`popup-maps-${loc.id}`);
+        if (distEl) {
+            const span = distEl.querySelector('span');
+            const icon = distEl.querySelector('i');
+            if (span && span.textContent !== distText) span.textContent = distText;
+            if (icon && !icon.classList.contains(popupIcon)) icon.className = `ph-fill ${popupIcon} text-base`;
+        }
+        if (mapsEl && mapsEl.href !== mapsUrl) {
+            mapsEl.href = mapsUrl;
+        }
+
+        // 4. บันทึกข้อมูลป๊อปอัปอัปเดตใส่ตัว Marker เผื่อผู้ใช้กดเปิดในอนาคต
+        const infoContent = `
+            <div class="map-popup-card">
+                <div class="map-popup-img">
+                    <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'">
+                </div>
+                <div class="map-popup-title">${loc.name}</div>
+                <div class="map-popup-dist" id="popup-dist-${loc.id}">
+                    <i class="ph-fill ${popupIcon} text-base"></i>
+                    <span>${distText}</span>
+                </div>
+                <div class="map-popup-gate"><strong>จุดสแกน:</strong> ${loc.gateInfo || '-'}</div>
+                <a 
+                    id="popup-maps-${loc.id}"
+                    href="${mapsUrl}" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    onclick="trackMapsClick('${loc.name}', false)" 
+                    class="btn-neo btn-blue w-full font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-neo-sm !text-white no-underline"
+                >
+                    <i class="ph-bold ph-navigation-arrow text-base"></i>
+                    <span>นำทาง Google Maps</span>
+                </a>
+            </div>
+        `;
+        if (marker.getPopup()) {
+            marker.setPopupContent(infoContent);
+        }
+    });
 }
 
 function updateUserLeafletPosition() {
