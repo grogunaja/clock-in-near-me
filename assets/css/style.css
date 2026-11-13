@@ -90,6 +90,16 @@ body {
     box-shadow: 1px 1px 0px 0px #FFFFFF;
 }
 
+/* Brand Logo Button Touch & Active Effect (iOS Safari & Mobile support) */
+.brand-logo-btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.brand-logo-btn:active {
+    transform: scale(0.95);
+}
+
 .card-neo {
     border: 3px solid #1E1B2E;
     box-shadow: 5px 5px 0px 0px #1E1B2E;

@@ -64,7 +64,7 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body class="min-h-screen flex flex-col selection:bg-pop-pink selection:text-white">
+<body ontouchstart="" class="min-h-screen flex flex-col selection:bg-pop-pink selection:text-white">
 
     <!-- Decorative Floating Shapes -->
     <div class="fixed -top-12 -left-12 w-40 h-40 bg-pop-yellow rounded-full mix-blend-multiply filter blur-2xl opacity-60 pointer-events-none z-0"></div>
@@ -84,12 +84,12 @@
             <!-- Brand Logo (Click to reset all & smooth scroll to top) -->
             <div 
                 onclick="resetToHome()" 
+                ontouchstart=""
                 role="button" 
                 tabindex="0" 
                 onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); resetToHome(); }"
-                class="flex items-center gap-2.5 sm:gap-3 cursor-pointer select-none transition-transform duration-150 active:scale-95"
-                title="กลับสู่หน้าแรก / ล้างการค้นหา"
-                aria-label="กลับสู่หน้าแรกและล้างการค้นหา"
+                class="brand-logo-btn flex items-center gap-2.5 sm:gap-3 cursor-pointer select-none transition-transform duration-150 active:scale-95"
+                aria-label="กลับสู่หน้าแรก และล้างการค้นหา"
             >
                 <img 
                     src="assets/images/logo_1.png" 
@@ -179,7 +179,7 @@
                         <i class="ph-bold ph-arrows-down-up mr-1"></i>เรียงตาม:
                     </label>
                     <select id="sortSelect" onchange="handleSearchAndFilter()" aria-label="จัดเรียงลำดับจุดแตะบัตร" class="bg-white border-[2.5px] border-pop-dark rounded-xl px-3 py-2.5 text-sm font-semibold shadow-neo-sm focus:outline-none cursor-pointer">
-                        <option value="distance-asc">ใกล้ที่สุดก่อน (เมตร)</option>
+                        <option value="distance-asc">ใกล้ที่สุดก่อน</option>
                         <option value="walkable">อยู่ใกล้มาก (&lt; 200 เมตร)</option>
                         <option value="name-asc">ชื่อสถานที่ (ก-ฮ)</option>
                     </select>
@@ -277,14 +277,8 @@
     <footer class="bg-pop-dark text-white border-t-[3px] border-pop-dark mt-12 py-6 px-4 z-10">
         <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-left sm:text-left">
             <!-- Footer Brand Logo (Click to reset all & smooth scroll to top) -->
-            <div 
-                onclick="resetToHome()" 
-                role="button" 
-                tabindex="0" 
-                onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); resetToHome(); }"
-                class="flex items-center gap-2.5 cursor-pointer select-none transition-transform duration-150 active:scale-95"
-                title="กลับสู่หน้าแรก / บนสุด"
-                aria-label="กลับสู่หน้าแรกและบนสุด"
+            <div  
+                class="flex items-center gap-2.5"
             >
                 <img 
                     src="assets/images/logo_2.png" 

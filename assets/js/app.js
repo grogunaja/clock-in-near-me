@@ -58,7 +58,7 @@ function formatDistanceBadge(meters) {
         return `ห่าง ${meters.toLocaleString('th-TH')} เมตร`;
     } else {
         const km = (meters / 1000).toFixed(1);
-        return `ห่าง ${km} กม. (${meters.toLocaleString('th-TH')} ม.)`;
+        return `ห่าง ${km} กม.`;
     }
 }
 
@@ -151,6 +151,22 @@ function filterIncomingPosition(rawLat, rawLng, rawAccuracy, timestamp = Date.no
         consecutiveRejectedCount = 0;
         lastGpsTimestamp = timestamp;
         return { lat: rawLat, lng: rawLng, accuracy: rawAccuracy, accepted: true };
+    }
+
+    // 1.5. App Resume / Wake-up Gap:
+    // หากห่างจากการอัปเดตพิกัดครั้งก่อนเกิน 7 วินาที (เช่น สลับไปแอปอื่น พักหน้าจอ หรือเพิ่งปลุกเครื่อง)
+    // การเคลื่อนที่ระยะนี้คือการเดินทางจริง ไม่ใช่สัญญาณกระโดดในอาคาร
+    // ให้ยอมรับพิกัดทันทีแบบ 100% (Direct Snap) ไม่ปฏิเสธเป็นความเร็วผิดปกติ และไม่หน่วง EMA
+    const timeSinceLastGps = (timestamp - lastGpsTimestamp);
+    if (timeSinceLastGps > 7000) {
+        lastGpsTimestamp = timestamp;
+        consecutiveRejectedCount = 0;
+        return {
+            lat: rawLat,
+            lng: rawLng,
+            accuracy: rawAccuracy,
+            accepted: true
+        };
     }
 
     const prevLat = userLocation.lat;
@@ -317,7 +333,7 @@ function getSlideHTML(loc, isHero = false) {
             <img 
                 src="${img1 || img2 || fallback}" 
                 alt="${loc.name}" 
-                onerror="this.src='${fallback}'"
+                onerror="this.onerror=null; this.src='${fallback}'"
                 class="w-full h-full object-cover"
             >
         `;
@@ -332,7 +348,7 @@ function getSlideHTML(loc, isHero = false) {
                 id="slide-img1-${key}"
                 src="${img1}" 
                 alt="${loc.name} - รูปอาคาร" 
-                onerror="this.src='${fallback}'"
+                onerror="this.onerror=null; this.src='${fallback}'"
                 class="slide-img-1 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-100' : 'opacity-0'}"
             >
 
@@ -341,7 +357,7 @@ function getSlideHTML(loc, isHero = false) {
                 id="slide-img2-${key}"
                 src="${img2}" 
                 alt="${loc.name} - รูปจุดแตะบัตรจริง" 
-                onerror="this.src='${fallback}'"
+                onerror="this.onerror=null; this.src='${fallback}'"
                 class="slide-img-2 absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${isShowingImg1 ? 'opacity-0' : 'opacity-100'}"
             >
         </div>
@@ -388,14 +404,73 @@ function stopSlideshowTimer() {
     }
 }
 
-// Automatically pause slideshow when tab is hidden to save mobile battery
+/**
+ * ปลุกระบบติดตาม GPS และอัปเดตระยะทางทันทีเมื่อผู้ใช้สลับกลับเข้ามาในแอป
+ * แก้ไขปัญหา OS ในมือถือ (iOS Safari / Android Chrome) Freeze GPS ขณะแอปอยู่เบื้องหลัง
+ */
+let lastWakeupTime = 0;
+function wakeUpGPS() {
+    const now = Date.now();
+    // ป้องกันการยิงซ้ำซ้อนภายใน 1.5 วินาที
+    if (now - lastWakeupTime < 1500) return;
+    lastWakeupTime = now;
+
+    if (navigator.geolocation) {
+        // 1. ดึงพิกัดสดทันทีแบบ Single-shot fix โดยไม่รอ watchPosition
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                onPositionSuccess(pos);
+            },
+            (err) => {
+                console.warn('[GPS Wakeup] Immediate fix fallback:', err);
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0, // บังคับอ่านจากเซนเซอร์ดาวเทียมสด ไม่ใช้ค่าแคชเดิม
+                timeout: 8000
+            }
+        );
+
+        // 2. รีเซ็ตท่อ watchPosition ใหม่ เพื่อแก้ปัญหา OS Freeze ท่อ GPS เดิมไว้ขณะอยู่เบื้องหลัง
+        startLiveTracking();
+    }
+
+    // 3. ปรับสเกลแผนที่ Leaflet และอัปเดตระยะทางทันที
+    if (leafletMap && currentView === 'map') {
+        leafletMap.invalidateSize();
+        if (typeof updateLeafletPinsRealtime === 'function') {
+            updateLeafletPinsRealtime();
+        }
+    }
+}
+
+// Automatically handle app lifecycle when user switches apps or wakes phone
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         stopSlideshowTimer();
-    } else if (currentView === 'list') {
-        startSlideshowTimer();
+    } else {
+        if (currentView === 'list') {
+            startSlideshowTimer();
+        }
+        wakeUpGPS();
     }
 });
+
+// ดักจับเมื่อผู้ใช้สลับกลับมาที่หน้าเว็บ (iOS / Android Browser Focus)
+window.addEventListener('pageshow', () => {
+    wakeUpGPS();
+});
+
+window.addEventListener('focus', () => {
+    wakeUpGPS();
+});
+
+// Fallback: แตะหน้าจอครั้งแรกเมื่อกลับมา ถ้าพิกัดเงียบไปเกิน 10 วินาที ให้สะกิดปลุกทันที
+document.addEventListener('touchstart', () => {
+    if (Date.now() - lastGpsTimestamp > 10000) {
+        wakeUpGPS();
+    }
+}, { passive: true });
 
 // ==========================================
 // 5. RENDERING HERO (NEAREST) & GRID CARDS
@@ -452,7 +527,7 @@ function renderNearestHero(spot) {
     lastKnownHeroId = spot.id;
 
     container.innerHTML = `
-        <div class="card-neo bg-gradient-to-br from-pop-yellow via-[#FFE082] to-pop-mint/40 rounded-3xl p-4 sm:p-6 relative overflow-hidden transition-all duration-300 cursor-pointer" onclick="copyBuildingLink(${spot.id}, event)" title="คลิกเพื่อคัดลอกลิงก์จุดแตะบัตร">
+        <div class="card-neo bg-gradient-to-br from-pop-yellow via-[#FFE082] to-pop-mint/40 rounded-3xl p-4 sm:p-6 relative overflow-hidden transition-all duration-300 cursor-pointer" onclick="copyBuildingLink(${spot.id}, event)" title="คลิกเพื่อแชร์ ${spot.name}">
             <!-- Decorative background sticker -->
             <div class="hidden sm:flex absolute -right-6 -bottom-6 w-36 h-36 rounded-full bg-white/30 border-2 border-pop-dark/10 items-center justify-center pointer-events-none"></div>
 
@@ -498,6 +573,7 @@ function renderNearestHero(spot) {
                             rel="noopener noreferrer"
                             onclick="trackMapsClick('${spot.name}', true)"
                             class="btn-neo btn-blue flex-grow font-display font-semibold py-3 sm:py-3.5 px-3 sm:px-5 rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-neo"
+                            title="นำทางด้วย Google Maps"
                         >
                             <i class="ph-bold ph-navigation-arrow text-base sm:text-xl"></i>
                             <span>นำทางด้วย Google Maps</span>
@@ -508,6 +584,7 @@ function renderNearestHero(spot) {
                             onclick="focusBuildingOnMap(${spot.id}, 'hero')"
                             aria-label="ดู ${spot.name} บนแผนที่"
                             class="btn-neo btn-white font-display font-semibold py-3 sm:py-3.5 px-3.5 sm:px-5 rounded-2xl text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-neo cursor-pointer shrink-0 text-pop-dark hover:text-pop-pink"
+                            title="ดูบนแผนที่"
                         >
                             <i class="ph-bold ph-map-trifold text-base sm:text-xl text-pop-pink"></i>
                             <span>ดูบนแผนที่</span>
@@ -542,6 +619,16 @@ function handleSearchAndFilter(updateMapPins = true) {
 
         return matchesQuery && matchesWalkable;
     });
+
+    // หากเปิดมาจากลิงก์แชร์ตึก และคำค้นหายังตรงกับชื่อตึกที่แชร์ ให้แสดงเฉพาะตึกนั้นตรงๆ 100% (ป้องกันชื่อตึกอื่นที่มีคำคล้ายกันปนเข้ามา)
+    if (sharedBuildingId) {
+        const sharedLoc = locationsData.find(l => l.id === sharedBuildingId);
+        if (sharedLoc && query === sharedLoc.name.toLowerCase().trim()) {
+            filtered = [sharedLoc];
+        } else {
+            sharedBuildingId = null; // ปลดล็อกอัตโนมัติหากผู้ใช้พิมพ์ค้นหาคำอื่น
+        }
+    }
 
     // Sort
     if (sortMode === 'name-asc') {
@@ -606,7 +693,7 @@ function renderLocationsGrid(list) {
             : 'กำลังคำนวณ...';
 
         return `
-            <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300 cursor-pointer" data-id="${loc.id}" onclick="copyBuildingLink(${loc.id}, event)" title="คลิกเพื่อคัดลอกลิงก์จุดแตะบัตร">
+            <article class="card-neo bg-white rounded-3xl overflow-hidden flex flex-col justify-between relative transition-all duration-300 cursor-pointer" data-id="${loc.id}" onclick="copyBuildingLink(${loc.id}, event)" title="คลิกเพื่อแชร์ ${loc.name}">
                 <!-- Top Image with Slideshow & Badges -->
                 <div>
                     <div class="relative h-48 w-full bg-slate-100 border-b-[3px] border-pop-dark overflow-hidden group">
@@ -640,7 +727,7 @@ function renderLocationsGrid(list) {
 
                         <!-- Building Name & Scan Location (Tightly grouped) -->
                         <div class="space-y-0.5">
-                            <h3 class="font-display text-lg font-semibold text-pop-dark leading-snug" title="${loc.name}">
+                            <h3 class="font-display text-lg font-semibold text-pop-dark leading-snug">
                                 ${loc.name}
                             </h3>
 
@@ -660,6 +747,7 @@ function renderLocationsGrid(list) {
                         rel="noopener noreferrer"
                         onclick="trackMapsClick('${loc.name}', false)"
                         class="btn-neo btn-yellow flex-grow font-semibold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-neo-sm"
+                        title="นำทางด้วย Google Maps"
                     >
                         <i class="ph-bold ph-navigation-arrow text-base"></i>
                         <span>นำทางด้วย Google Maps</span>
@@ -669,6 +757,7 @@ function renderLocationsGrid(list) {
                         onclick="focusBuildingOnMap(${loc.id}, 'grid')"
                         aria-label="ดู ${loc.name} บนแผนที่"
                         class="btn-neo btn-white w-10 h-10 shrink-0 rounded-xl flex items-center justify-center shadow-neo-sm text-pop-dark hover:text-pop-pink cursor-pointer"
+                        title="ดูบนแผนที่"
                     >
                         <i class="ph-bold ph-map-trifold text-lg"></i>
                     </button>
@@ -714,19 +803,32 @@ function resetToHome() {
         document.activeElement.blur();
     }
 
-    // 2. Reset all search input, filters, sort order and URL state
+    // 2. Clear any saved list scroll position or focused building states
+    lastListScrollY = null;
+    lastFocusedBuildingId = null;
+    lastFocusedSource = null;
+
+    // 3. Reset all search input, filters, sort order and URL state
     resetAllFilters();
 
-    // 3. If currently on Map view, switch back to List view
+    // 4. If currently on Map view, switch back to List view without restoring previous scroll position
     if (typeof currentView !== 'undefined' && currentView !== 'list' && typeof switchView === 'function') {
-        switchView('list');
+        switchView('list', true, true);
     }
 
-    // 4. Smoothly scroll back to the top of the page
+    // 5. Smoothly scroll back to the top of the page
     window.scrollTo({
         top: 0,
         behavior: 'smooth'
     });
+
+    // Fallback frame: ให้มั่นใจว่าหน้าจอเลื่อนไปบนสุดแน่นอนแม้เบราว์เซอร์เพิ่ง reflow ความสูงหน้าจอ
+    setTimeout(() => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }, 60);
 }
 
 // ==========================================
@@ -938,7 +1040,7 @@ function focusMapOnProximity() {
     }
 }
 
-function switchView(viewMode, skipProximity = false) {
+function switchView(viewMode, skipProximity = false, skipRestoreScroll = false) {
     if (currentView === viewMode) return;
     const wasMapView = (currentView === 'map');
     const wasListView = (currentView === 'list');
@@ -1064,7 +1166,7 @@ function switchView(viewMode, skipProximity = false) {
             gtag('event', 'switch_view', { view_mode: 'list' });
         }
 
-        if (wasMapView) {
+        if (wasMapView && !skipRestoreScroll) {
             setTimeout(restoreListPosition, 80);
         }
     }
@@ -1371,7 +1473,7 @@ function renderLeafletPins(filterList = null) {
         const infoContent = `
             <div class="map-popup-card">
                 <div class="map-popup-img">
-                    <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'">
+                    <img src="${popupImg}" alt="${loc.name}" onerror="this.onerror=null; this.src='assets/images/noimage.jpg'">
                 </div>
                 <div class="map-popup-title">${loc.name}</div>
                 <div class="map-popup-dist" id="popup-dist-${loc.id}">
@@ -1480,7 +1582,7 @@ function updateLeafletPinsRealtime() {
         const infoContent = `
             <div class="map-popup-card">
                 <div class="map-popup-img">
-                    <img src="${popupImg}" alt="${loc.name}" onerror="this.src='assets/images/noimage.jpg'">
+                    <img src="${popupImg}" alt="${loc.name}" onerror="this.onerror=null; this.src='assets/images/noimage.jpg'">
                 </div>
                 <div class="map-popup-title">${loc.name}</div>
                 <div class="map-popup-dist" id="popup-dist-${loc.id}">
@@ -1689,7 +1791,20 @@ function handleFloatingButtonScroll() {
 }
 
 window.addEventListener('scroll', handleFloatingButtonScroll, { passive: true });
-window.addEventListener('resize', handleFloatingButtonScroll, { passive: true });
+window.addEventListener('resize', () => {
+    handleFloatingButtonScroll();
+    if (leafletMap && currentView === 'map') {
+        leafletMap.invalidateSize();
+    }
+}, { passive: true });
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        handleFloatingButtonScroll();
+        if (leafletMap && currentView === 'map') {
+            leafletMap.invalidateSize();
+        }
+    }, 200);
+});
 
 // Initialize on Window Load
 window.onload = function () {

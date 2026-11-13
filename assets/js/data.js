@@ -224,7 +224,7 @@ const baseLocations = [
     },
     {
         id: 23,
-        name: "Skywalk ตรงข้าม 84 ปี",
+        name: "Skywalk ตรงข้ามตึก 84 ปี",
         gateInfo: "ชั้น 2 ใกล้ลิฟต์",
         lat: 13.75761986154529,
         lng: 100.48460672639163,
